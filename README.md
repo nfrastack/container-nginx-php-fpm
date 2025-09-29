@@ -235,6 +235,7 @@ When `PHP_FPM_CONTAINER_MODE` set to `nginx` the `PHP_FPM_LISTEN_PORT` environme
 | `PHP_TIMEOUT`                         | Maximum Script execution Time                                                                            | `180`                                       |
 | `PHP_UPLOAD_MAX_SIZE`                 | Maximum Input Size for Uploads                                                                           | `2G`                                        |
 | `PHP_WEBROOT`                         | Used with `CONTAINER_MODE=php-fpm`                                                                       | `/www/html`                                 |
+| `PHP_DISPLAY_ERRORS`                  | Show PHP errors in the output                                                                            | `FALSE`                                     |
 
 #### Enabling / Disabling Specific Extensions
 

@@ -1,9 +1,35 @@
 #!/command/with-contenv bash
 
 source /assets/functions/00-container
-source /assets/defaults/10-nginx
+source /assets/defaults/10-nginx-php-fpm
 prepare_service
 PROCESS_NAME="php-fpm"
+
+cat <<EOF
+
+********************************************************************************************************
+*                                                                                                      *
+*                    END OF LIFE NOTICE AUGUST 18, 2025                                                *
+*                               tiredofit/nginx-php-fpm                                                *
+*                                                                                                      *
+* This image is no longer maintained as of and will not receive updates.                               *
+*                                                                                                      *
+* A successor image is available at:                                                                   *
+*                                                                                                      *
+* Repository | Documentation:                                                                          *
+*   - https://github.com/nfrastack/container-nginx-php-fpm                                             *
+*                                                                                                      *
+* Image Registries:                                                                                    *
+*   - https://hub.docker.com/r/nfrastack/nginx-php-fpm                                                 *
+*   - https://github.com/nfrastack/container-nginx-php-fpm/pkgs/container/container-nginx-php-fpm      *
+*                                                                                                      *
+* Please visit https://nfrastack.com for more information.                                             *
+*                                                                                                      *
+********************************************************************************************************
+
+EOF
+
+sleep 15
 
 if var_false "${ENABLE_PHP_FPM}" ; then
     print_notice "Disabling PHP-FPM Functionality"
@@ -17,8 +43,8 @@ if var_false "${ENABLE_PHP_FPM}" ; then
 fi
 
 case "${PHP_FPM_CONTAINER_MODE,,}" in
-      "nginx")
-            print_warn "Setting Container to operate in Nginx standalone mode"
+      "nginx-php-fpm")
+            print_warn "Setting Container to operate in nginx-php-fpm standalone mode"
             if [ "${PHP_FPM_HOST}" = "127.0.0.1" ] || [ "${PHP_FPM_HOST}" = "localhost" ] ; then
               print_error "Your PHP_FPM_HOST variable is still set to 'localhost' Please change it to something else"
               exit 1
@@ -29,13 +55,13 @@ case "${PHP_FPM_CONTAINER_MODE,,}" in
             exit 0
       ;;
       "php-fpm")
-            print_warn "Setting Container to operate in PHP-FPM standalone mode - You will need a seperate container for Nginx or another webserver to serve content"
+            print_warn "Setting Container to operate in PHP-FPM standalone mode - You will need a seperate container for nginx-php-fpm or another webserver to serve content"
             set -x
-            mod_service_stop 10-nginx
+            mod_service_stop 10-nginx-php-fpm
             set +x
             print_notice "Setting PHP-FPM to serve from ${PHP_WEBROOT}"
             sed -i "/[www]#/achdir = ${PHP_WEBROOT}" /assets/php-fpm/fpm/php-fpm.conf
-            rm -rf /etc/zabbix/zabbix_agent.conf.d/nginx.conf
+            rm -rf /etc/zabbix/zabbix_agent.conf.d/nginx-php-fpm.conf
       ;;
 esac
 
@@ -43,19 +69,19 @@ if [ ! -f "/tmp/.container/container-restart" ] ; then
     phpfpm_bootstrap
     phpfpm_configure_server
     phpfpm_configure_extensions
-    if [[ "${PHP_FPM_CONTAINER_MODE,,}" == *"nginx"* ]] ; then phpfpm_configure_nginx ; fi
+    if [[ "${PHP_FPM_CONTAINER_MODE,,}" == *"nginx-php-fpm"* ]] ; then phpfpm_configure_nginx-php-fpm ; fi
     if [[ "${PHP_FPM_CONTAINER_MODE,,}" == *"php-fpm"* ]] ; then phpfpm_create_default_page ; fi
-    if var_true "${NGINX_ENABLE_APPLICATION_CONFIGURATION}"; then
-        if [ -n "${NGINX_WEBROOT_SUFFIX}" ]; then
-            _nginx_webroot_original="${NGINX_WEBROOT}"
-            NGINX_WEBROOT=${NGINX_WEBROOT}${NGINX_WEBROOT_SUFFIX}
+    if var_true "${nginx-php-fpm_ENABLE_APPLICATION_CONFIGURATION}"; then
+        if [ -n "${nginx-php-fpm_WEBROOT_SUFFIX}" ]; then
+            _nginx-php-fpm_webroot_original="${nginx-php-fpm_WEBROOT}"
+            nginx-php-fpm_WEBROOT=${nginx-php-fpm_WEBROOT}${nginx-php-fpm_WEBROOT_SUFFIX}
         fi
         phpfpm_configure_site_default
-        if [ -n "${NGINX_WEBROOT_SUFFIX}" ]; then
-            NGINX_WEBROOT=${_nginx_webroot_original}
+        if [ -n "${nginx-php-fpm_WEBROOT_SUFFIX}" ]; then
+            nginx-php-fpm_WEBROOT=${_nginx-php-fpm_webroot_original}
         fi
     fi
-    if [ "${NGINX_AUTHENTICATION_TYPE,,}" = "llng" ] ; then  phpfpm_configure_authentication ; fi
+    if [ "${nginx-php-fpm_AUTHENTICATION_TYPE,,}" = "llng" ] ; then  phpfpm_configure_authentication ; fi
     phpfpm_configure_logging
     phpfpm_post_init
 fi

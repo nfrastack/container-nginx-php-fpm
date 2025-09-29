@@ -1,3 +1,8 @@
+## 7.7.99 2025-09-29 <dave at tiredofit dot ca>
+
+Add EOL Notice
+
+
 ## 7.7.20 2025-08-16 <dave at tiredofit dot ca>
 
    ### Changed

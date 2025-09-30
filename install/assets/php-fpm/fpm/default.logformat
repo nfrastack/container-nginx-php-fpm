@@ -1,1 +1,0 @@
-access.format='%{%Y-%m-%dT%H:%M:%S%z}T %{HTTP_X_FORWARDED_FOR}e %R %u %s %m "%{REQUEST_URI}e" %{HTTP_X_REQUEST_ID}e %{SERVER_PROTOCOL}e %l "%{HTTP_REFERER}e" "%{HTTP_USER_AGENT}e" %M %C %d'

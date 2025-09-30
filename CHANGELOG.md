@@ -1,7 +1,6 @@
-## 7.7.99 2025-09-29 <dave at tiredofit dot ca>
+## 8.0.0pre 2024-07-25 <code at nfrastack dot com>
 
-Add EOL Notice
-
+   ###
 
 ## 7.7.20 2025-08-16 <dave at tiredofit dot ca>
 
@@ -77,7 +76,6 @@ Add EOL Notice
 
    ### Changed
       - Remove stray cat command in Dockerfile
-
 
 ## 7.7.8 2024-05-01 <dave at tiredofit dot ca>
 

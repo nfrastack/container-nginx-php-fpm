@@ -29,14 +29,14 @@ assignees: ''
 ### Environment
 <!--Your Configuration (please complete the following information): -->
 
-- Image version / tag:  
+- Image version / tag:
 - Host OS:
 
 <details>
-<summary>Any logs | docker-compose.yml</summary>
+<summary>Any logs | compose.yml</summary>
 </details>
 
 <!-- Include anything additional -->
-    
+
 ### Possible fixes
 <!-- If you can, provide details to the root cause that might be responsible for the problem. -->

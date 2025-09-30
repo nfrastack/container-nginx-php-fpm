@@ -13,7 +13,7 @@
                 "uuid": "107256c64b64492cbf2fa9dfe4fd1f5b",
                 "template": "PHP OPcache",
                 "name": "PHP OPcache",
-                "description": "Get metrics from PHP OPcache\n\nThis is template has two external scripts that are required for data collection and this template is meant to be used specifically with https://github.com/tiredofit/docker-nginx-php-fpm/",
+                "description": "Get metrics from PHP OPcache\n\nThis is template has two external scripts that are required for data collection and this template is meant to be used specifically with https://github.com/nfrastack/container-nginx-php-fpm/",
                 "groups": [
                     {
                         "name": "Templates/Applications"

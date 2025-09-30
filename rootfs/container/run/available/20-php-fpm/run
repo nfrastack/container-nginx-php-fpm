@@ -1,0 +1,16 @@
+#!/command/with-contenv bash
+# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+source /container/base/functions/container/init
+prepare_service defaults *-nginx
+prepare_service single
+SERVICE_NAME="php-fpm"
+
+check_container_initialized
+check_service_initialized init
+liftoff
+
+print_start "Starting php-fpm ${PHP_VERSION}"
+silent exec s6-setuidgid ${PHPFPM_USER} php-fpm -F;

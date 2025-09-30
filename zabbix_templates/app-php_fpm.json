@@ -13,7 +13,7 @@
                 "uuid": "1cbda0970410425684135884d0cb7090",
                 "template": "PHP FPM",
                 "name": "PHP FPM",
-                "description": "Get PHP-FPM metrics using Zabbix agent running on Linux.\n\nThis template is meant to be used with https://github.com/tiredofit/docker-nginx-php-fpm",
+                "description": "Get PHP-FPM metrics using Zabbix agent running on Linux.\n\nThis template is meant to be used with https://github.com/nfrastack/container-nginx-php-fpm",
                 "groups": [
                     {
                         "name": "Templates/Applications"
@@ -476,7 +476,7 @@
                                 "dependencies": [
                                     {
                                         "name": "PHP-FPM: Process is not running",
-                                        "expression": "last(/PHP FPM/proc.num[\"{$PHP_FPM.PROCESS_NAME}\"])=0"
+                                        "expression": "last(/PHP FPM/proc.num[\"{$PHP_FPM.SERVICE_NAME}\"])=0"
                                     }
                                 ]
                             },
@@ -494,7 +494,7 @@
                         "uuid": "a709eaae52ad4128a139c618db6525d2",
                         "name": "PHP-FPM: CPU utilization",
                         "type": "ZABBIX_ACTIVE",
-                        "key": "proc.cpu.util[\"{$PHP_FPM.PROCESS_NAME}\"]",
+                        "key": "proc.cpu.util[\"{$PHP_FPM.SERVICE_NAME}\"]",
                         "history": "7d",
                         "value_type": "FLOAT",
                         "units": "%",
@@ -510,7 +510,7 @@
                         "uuid": "ef771994ec9e482babf372d9f867d500",
                         "name": "PHP-FPM: Memory usage, %",
                         "type": "ZABBIX_ACTIVE",
-                        "key": "proc.mem[\"{$PHP_FPM.PROCESS_NAME}\",,,,pmem]",
+                        "key": "proc.mem[\"{$PHP_FPM.SERVICE_NAME}\",,,,pmem]",
                         "history": "7d",
                         "value_type": "FLOAT",
                         "units": "%",
@@ -526,7 +526,7 @@
                         "uuid": "f55a5ef29f864d0a8c1a325df2372f7c",
                         "name": "PHP-FPM: Memory usage (rss)",
                         "type": "ZABBIX_ACTIVE",
-                        "key": "proc.mem[\"{$PHP_FPM.PROCESS_NAME}\",,,,rss]",
+                        "key": "proc.mem[\"{$PHP_FPM.SERVICE_NAME}\",,,,rss]",
                         "history": "7d",
                         "units": "B",
                         "description": "Resident set size memory used by process in bytes.",
@@ -541,7 +541,7 @@
                         "uuid": "ab8dc0d1ce344fe8ae6a23716a168fbd",
                         "name": "PHP-FPM: Number of processes running",
                         "type": "ZABBIX_ACTIVE",
-                        "key": "proc.num[\"{$PHP_FPM.PROCESS_NAME}\"]",
+                        "key": "proc.num[\"{$PHP_FPM.SERVICE_NAME}\"]",
                         "history": "7d",
                         "tags": [
                             {
@@ -552,7 +552,7 @@
                         "triggers": [
                             {
                                 "uuid": "21a03d0ada634632ae9089a2cf3b4d70",
-                                "expression": "last(/PHP FPM/proc.num[\"{$PHP_FPM.PROCESS_NAME}\"])=0",
+                                "expression": "last(/PHP FPM/proc.num[\"{$PHP_FPM.SERVICE_NAME}\"])=0",
                                 "name": "PHP-FPM: Process is not running",
                                 "priority": "HIGH"
                             }
@@ -595,7 +595,7 @@
                         "description": "The port of PHP-FPM status host or container."
                     },
                     {
-                        "macro": "{$PHP_FPM.PROCESS_NAME}",
+                        "macro": "{$PHP_FPM.SERVICE_NAME}",
                         "value": "php-fpm",
                         "description": "PHP-FPM process name"
                     },
@@ -1191,7 +1191,7 @@
                                 "dependencies": [
                                     {
                                         "name": "PHP-FPM: Process is not running",
-                                        "expression": "last(/PHP FPM - Passive/proc.num[\"{$PHP_FPM.PROCESS_NAME}\"])=0"
+                                        "expression": "last(/PHP FPM - Passive/proc.num[\"{$PHP_FPM.SERVICE_NAME}\"])=0"
                                     }
                                 ]
                             },
@@ -1208,7 +1208,7 @@
                     {
                         "uuid": "a709eaae52ad4128a129c618db6525d2",
                         "name": "PHP-FPM: CPU utilization",
-                        "key": "proc.cpu.util[\"{$PHP_FPM.PROCESS_NAME}\"]",
+                        "key": "proc.cpu.util[\"{$PHP_FPM.SERVICE_NAME}\"]",
                         "history": "7d",
                         "value_type": "FLOAT",
                         "units": "%",
@@ -1223,7 +1223,7 @@
                     {
                         "uuid": "ef771994ec9e482babf872d9f867d500",
                         "name": "PHP-FPM: Memory usage, %",
-                        "key": "proc.mem[\"{$PHP_FPM.PROCESS_NAME}\",,,,pmem]",
+                        "key": "proc.mem[\"{$PHP_FPM.SERVICE_NAME}\",,,,pmem]",
                         "history": "7d",
                         "value_type": "FLOAT",
                         "units": "%",
@@ -1238,7 +1238,7 @@
                     {
                         "uuid": "f55a5ef29f864d0a8c1af25df2372f7c",
                         "name": "PHP-FPM: Memory usage (rss)",
-                        "key": "proc.mem[\"{$PHP_FPM.PROCESS_NAME}\",,,,rss]",
+                        "key": "proc.mem[\"{$PHP_FPM.SERVICE_NAME}\",,,,rss]",
                         "history": "7d",
                         "units": "B",
                         "description": "Resident set size memory used by process in bytes.",
@@ -1252,7 +1252,7 @@
                     {
                         "uuid": "ab8dc0d1ce344fe8ae6a22716a168fbd",
                         "name": "PHP-FPM: Number of processes running",
-                        "key": "proc.num[\"{$PHP_FPM.PROCESS_NAME}\"]",
+                        "key": "proc.num[\"{$PHP_FPM.SERVICE_NAME}\"]",
                         "history": "7d",
                         "tags": [
                             {
@@ -1263,7 +1263,7 @@
                         "triggers": [
                             {
                                 "uuid": "21a03d0ada634602ae9089a2cf3b4d70",
-                                "expression": "last(/PHP FPM - Passive/proc.num[\"{$PHP_FPM.PROCESS_NAME}\"])=0",
+                                "expression": "last(/PHP FPM - Passive/proc.num[\"{$PHP_FPM.SERVICE_NAME}\"])=0",
                                 "name": "PHP-FPM: Process is not running",
                                 "priority": "HIGH"
                             }
@@ -1305,7 +1305,7 @@
                         "description": "The port of PHP-FPM status host or container."
                     },
                     {
-                        "macro": "{$PHP_FPM.PROCESS_NAME}",
+                        "macro": "{$PHP_FPM.SERVICE_NAME}",
                         "value": "php-fpm",
                         "description": "PHP-FPM process name"
                     },
@@ -1473,7 +1473,7 @@
                         "color": "1A7C11",
                         "item": {
                             "host": "PHP FPM - Passive",
-                            "key": "proc.cpu.util[\"{$PHP_FPM.PROCESS_NAME}\"]"
+                            "key": "proc.cpu.util[\"{$PHP_FPM.SERVICE_NAME}\"]"
                         }
                     }
                 ]
@@ -1487,7 +1487,7 @@
                         "color": "1A7C11",
                         "item": {
                             "host": "PHP FPM",
-                            "key": "proc.cpu.util[\"{$PHP_FPM.PROCESS_NAME}\"]"
+                            "key": "proc.cpu.util[\"{$PHP_FPM.SERVICE_NAME}\"]"
                         }
                     }
                 ]
@@ -1501,7 +1501,7 @@
                         "color": "1A7C11",
                         "item": {
                             "host": "PHP FPM - Passive",
-                            "key": "proc.mem[\"{$PHP_FPM.PROCESS_NAME}\",,,,rss]"
+                            "key": "proc.mem[\"{$PHP_FPM.SERVICE_NAME}\",,,,rss]"
                         }
                     }
                 ]
@@ -1515,7 +1515,7 @@
                         "color": "1A7C11",
                         "item": {
                             "host": "PHP FPM",
-                            "key": "proc.mem[\"{$PHP_FPM.PROCESS_NAME}\",,,,rss]"
+                            "key": "proc.mem[\"{$PHP_FPM.SERVICE_NAME}\",,,,rss]"
                         }
                     }
                 ]

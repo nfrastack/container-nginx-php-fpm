@@ -1,0 +1,44 @@
+name: alpine
+
+on:
+  workflow_call
+
+jobs:
+  build_alpine:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        build:
+          - { php_version: "8.4", distro_variant: "3.22" }
+          - { php_version: "8.3", distro_variant: "3.22" }
+          #- { php_version: "8.2", distro_variant: "3.22" }
+          #- { php_version: "8.1", distro_variant: "3.19" }
+          #- { php_version: "8.0", distro_variant: "3.16" }
+          #- { php_version: "7.4", distro_variant: "3.15" }
+          #- { php_version: "7.3", distro_variant: "3.12" }
+        image_variant:
+          - core
+          - faflopza
+          - faflopzaze
+    env:
+      BASE_IMAGE: "ghcr.io/nfrastack/container-nginx"
+      DISTRO: "alpine"
+      PHP_BASE: ${{ matrix.build.php_version }}
+      DISTRO_VARIANT: ${{ matrix.build.distro_variant }}
+      IMAGE_VARIANT: ${{ matrix.image_variant }}
+      ARCH: "linux/amd64,linux/arm64"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+      - name: Download Encrypted Files
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-artifacts
+          path: ./
+      - name: Build Image
+        uses: nfrastack/gha/.github/actions/build_multi_image@main
+        with:
+          docker_username: ${{ secrets.DOCKER_USERNAME }}
+          docker_password: ${{ secrets.DOCKER_PASSWORD }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+### LLNG Authentication handler
+### Included usually in fastcgi config
+include /etc/nginx/snippets/authentication/llng-auth_request;
+include /etc/nginx/snippets/authentication/llng-params;

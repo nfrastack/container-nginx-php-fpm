@@ -1,0 +1,652 @@
+# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+phpfpm_bootstrap_filesystem() {
+    :
+}
+
+phpfpm_bootstrap() {
+    case "$(container_info distro)" in
+        alpine )
+            case "${PHP_BASE}" in
+                8*)
+                    php_prefix="/etc/php${PHP_BASE/./}/"
+                ;;
+                * )
+                    php_prefix="/etc/php${PHP_VERSION%%.*}/"
+                ;;
+            esac
+        ;;
+        "debian" )
+            php_root="/etc/php/${PHP_BASE}"
+            php_prefix="/etc/php/${PHP_BASE}/fpm/"
+        ;;
+    esac
+}
+
+phpfpm_configure_environment_variables() {
+    mkdir -p "${php_prefix%/}"/environment/
+    for phpfpm_env_pair in $(set -o posix ; set | sort | grep "^PHPFPM_ENV_.*=" | sed "s|^PHPFPM_ENV_||g") ; do
+        local phpfpm_env_var
+        local phpfpm_env_value
+        phpfpm_env_var=$(echo "${phpfpm_env_pair}" | cut -d = -f1)
+        phpfpm_env_value=$(echo "${phpfpm_env_pair}" | cut -d = -f2-)
+        echo "env[${phpfpm_env_var}] = ${phpfpm_env_value}" | silent tee "${php_prefix%/}"/environment/"${phpfpm_env_var}"
+    done
+}
+
+phpfpm_configure_logging() {
+    mkdir -p "${php_prefix%/}"/php-fpm.d/
+    mkdir -p "${PHPFPM_LOG_ERROR_PATH}"
+    touch "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}"
+    chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHPFPM_LOG_ERROR_PATH%/}"
+    create_logrotate php-fpm-error "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}" php-fpm-error "${PHPFPM_USER}" "${PHPFPM_GROUP}"
+
+    configure_server_logging="$(cat <<EOF
+                                    error_log = ${PHPFPM_LOG_ERROR_PATH%/}/${PHPFPM_LOG_ERROR_FILE}
+                                    log_level = ${PHPFPM_LOG_LEVEL}
+                                    log_limit = ${PHPFPM_LOG_LIMIT}
+EOF
+                               )"
+
+    echo "${configure_server_logging}" | sed -e "s|^[ \t]*||" | silent tee "${php_prefix%/}"/php-fpm.d/logging.conf
+
+    case "${PHP_BASE}" in
+        "5.6" | 7[0-2] )
+            sed -i "/^log_limit =/d" "${php_prefix%/}"/php-fpm.d/logging.conf
+        ;;
+    esac
+}
+
+phpfpm_configure_modules() {
+    call phpfpm_configure_modules_apc
+    call phpfpm_configure_modules_opcache
+    call phpfpm_configure_modules_xdebug
+}
+
+phpfpm_configure_nginx() {
+    if var_true "${NGINX_ENABLE_APPLICATION_CONFIGURATION}"; then
+        if [ -n "${NGINX_WEBROOT_SUFFIX}" ]; then
+            _nginx_webroot_original="${NGINX_WEBROOT}"
+            NGINX_WEBROOT=${NGINX_WEBROOT}${NGINX_WEBROOT_SUFFIX}
+        fi
+        phpfpm_configure_site_default
+        if [ -n "${NGINX_WEBROOT_SUFFIX}" ]; then
+            NGINX_WEBROOT=${_nginx_webroot_original}
+        fi
+    fi
+
+    if [ -n "${NGINX_SITE_ENABLED}" ] ; then
+        if [ "${NGINX_SITE_ENABLED,,}" != "null" ] ; then
+            for site_list in $(echo "${NGINX_SITE_ENABLED}" | tr "," "\n"); do
+                case "${site_list}" in
+                    "all")
+                        site_filelist=$(find /etc/nginx/sites.available/*.conf /override/sites.available/*.conf -type f -not -name *.enc* -print -maxdepth 1 2>/dev/null)
+                    ;;
+                    * )
+                        site_filelist=$(find /etc/nginx/sites.available/${site_list}.conf /override/sites.available/${site_list}.conf -type f -not -name *.enc* -print -maxdepth 1 2>/dev/null)
+                    ;;
+                esac
+                for site_path in $(echo "${site_filelist}"); do
+                    site="$(basename "${site_path%.*}")"
+                    print_info "[configure_site] Configuring site '${site}'"
+                    call phpfpm_configure_nginx_php "${site_path}"
+                    call nginx_configure_site_authentication "${site_path}"
+                done
+            done
+        fi
+    fi
+
+    call phpfpm_configure_nginx_hide_header
+    if [ "${NGINX_AUTHENTICATION_TYPE,,}" = "llng" ] ; then  phpfpm_configure_authentication_llng ; fi
+}
+
+phpfpm_configure_nginx_php() {
+    local nginxphpconf_value
+    if [ -v NGINX_${site^^}_PHP_UPSTREAM ] ; then
+        nginxphpconf_value="$(set -o posix ; set | grep "NGINX_${site^^}_PHP_UPSTREAM=" | cut -d = -f 2)"
+    else
+        if [ -n "${PHPFPM_POOL_WWW_LISTEN_TYPE}" ]; then
+            nginxphpconf_value=www
+            ln -sf /etc/nginx/snippets/server.available/php-fpm/www.conf /etc/nginx/snippets/server.available/php-fpm.conf
+        else
+            nginxphpconf_value="$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | sed -e "/^DEFAULT/d" | uniq)"
+            ln -sf /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf /etc/nginx/snippets/server.available/php-fpm.conf
+    fi
+
+    if [ -f "${site_path}" ] && [ -f /etc/nginx/snippets/server.available/php-fpm/"${nginxphpconf_value}".conf ]; then
+        sed -i \
+                -e "s|include /etc/nginx/snippets/server.available/php-fpm.*;|include /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf;|g" \
+                "${site_path}"
+        fi
+    fi
+}
+
+
+phpfpm_configure_nginx_upstream() {
+    mkdir -p /etc/nginx/snippets/server.available/php-fpm
+    cat << EOF | silent tee /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
+fastcgi_pass phpfpm-${1,,}-upstream;
+fastcgi_read_timeout ${_pool_max_execution_time};
+fastcgi_send_timeout ${_pool_max_execution_time};
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+EOF
+
+    local _phpfpm_host
+
+    if var_true "${NGINX_ENABLE_UPSTREAM_KEEPALIVE}" ; then
+        upstream_keepalive="keepalive ${NGINX_UPSTREAM_KEEPALIVE};"
+    fi
+
+    if [ -v NGINX_UPSTREAM_${1^^}_HOST ]; then
+        _phpfpm_host=$(set -o posix ; set | grep -oE "^NGINX_UPSTREAM_${1^^}_HOST=" | cut -d = -f2-)
+    else
+        case "${_pool_listen_type,,}" in
+            "tcp" )
+                _phpfpm_host="127.0.0.1:${_pool_listen_tcp_port}"
+        ;;
+            "unix" )
+                _phpfpm_host="${_pool_listen_unix_socket}"
+        ;;
+        esac
+    fi
+
+    mkdir -p /etc/nginx/snippets/upstream.available
+    echo "upstream phpfpm-${1,,}-upstream {" | silent tee /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
+    echo "    ${upstream_keepalive}" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
+
+    for _php_fpm_upstream in $(echo "${_phpfpm_host}" | tr "," "\n"); do
+        if [[ $_{_php_fpm_upstream} != *":"* ]];then
+            _php_fpm_upstream_host_socket_prefix="unix://"
+        fi
+
+        echo "    server ${_php_fpm_upstream_host_socket_prefix}${_php_fpm_upstream} $(set -o posix ; set | grep -oE "^PHPFPM_UPSTREAM_${1^^}_OPTIONS=" | cut -d = -f2-);" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
+    done
+    echo "}" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
+set +x
+    sed -i \
+            -e "/# Do not delete - Upstream Configuration/a\ \ \ \ include \/etc\/nginx\/snippets\/upstream.available\/upstream-phpfpm-${1,,}.conf;" \
+            -e "/# Do not delete - Upstream Configuration/a\ \ \ \ ### PHP-FPM Multiple Handlers configuration" \
+        /etc/nginx/nginx.conf
+        set +x
+}
+
+
+phpfpm_configure_pools() {
+    local _phpfpm_pools
+    local _phpfpm_pool_vars
+    local _phpfpm_pool_prefix
+
+    _transform_phpfpmpool_variable() {
+        if grep -q "^PHPFPM_${1}_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)" != "unset" ]; then
+            export "$3"="$(grep "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)"
+        elif grep -q "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)" != "unset" ]; then
+            export "$3"="$(grep "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)"
+        elif grep -q "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep "^PHPFPM_DEFAULT_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)" != "unset" ]; then
+            export "$3"="$(grep "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)"
+        fi
+    }
+
+    if [ "$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | uniq | wc -l)" -eq 1 ] ; then
+        export PHPFPM_POOL_WWW_LISTEN_TYPE="${PHPFPM_POOL_DEFAULT_LISTEN_TYPE}"
+    fi
+
+    for phpfpm_pool in $(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | sed "/^DEFAULT/d" ) ; do
+        _php_fpm_pool_vars="$(mktemp)"
+        set -o posix ; set | grep -E "^PHPFPM_POOL_${phpfpm_pool}_|^PHPFPM_POOL_DEFAULT_" | tr " " "\n" > "${_php_fpm_pool_vars}"
+        _phpfpm_pool_prefix="${php_prefix%/}/pools.d/${phpfpm_pool,,}"
+        mkdir -p "${_phpfpm_pool_prefix}"
+        echo "[${phpfpm_pool,,}]" | silent tee "${_phpfpm_pool_prefix}".conf
+        call phpfpm_configure_pool_listener ${phpfpm_pool}
+        call phpfpm_configure_pool_log ${phpfpm_pool}
+        call phpfpm_configure_pool_processmanagement ${phpfpm_pool}
+        call phpfpm_configure_pool_settings ${phpfpm_pool}
+        call phpfpm_configure_pool_environment ${phpfpm_pool}
+        call phpfpm_configure_pool_override ${phpfpm_pool}
+        call phpfpm_configure_nginx_upstream ${phpfpm_pool}
+        rm "${_php_fpm_pool_vars}"
+    done
+}
+
+phpfpm_configure_pool_listener() {
+    _transform_phpfpmpool_variable "${1^^}" LISTEN_TYPE _pool_listen_type
+
+    case "${_pool_listen_type}" in
+        "tcp" )
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_IP _pool_listen_ip
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_PORT _pool_listen_port
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_TCP_IP _pool_listen_tcp_ip
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_TCP_IP_ALLOWED _pool_listen_tcp_ip_allowed
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_TCP_PORT _pool_listen_tcp_port
+            configure_pool="$(cat <<EOF
+                                listen                          = ${_pool_listen_listen_tcp_ip}:${_pool_listen_tcp_port}
+                                listen.allowed_clients          = ${_pool_listen_tcp_ip_allowed}
+EOF
+                            )"
+        ;;
+        "unix" )
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_UNIX_SOCKET _pool_listen_unix_socket
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_UNIX_GROUP _pool_listen_unix_group
+            _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_UNIX_USER _pool_listen_unix_user
+
+            if [ ! -d "$(dirname "${_pool_listen_unix_socket}")" ]; then
+                mkdir -p "$(dirname "${_pool_listen_unix_socket}")"
+                chown -R "${_pool_listen_unix_user}":"${_pool_listen_unix_group}" "$(dirname "${_pool_listen_unix_socket}")"
+            fi
+
+            if [ "$(basename "${_pool_listen_unix_socket}")" = "default.sock" ] ; then
+                _pool_listen_unix_socket="$(dirname "${_pool_listen_unix_socket}")/${1,,}.sock"
+            fi
+
+            configure_pool="$(cat <<EOF
+                                listen                              = ${_pool_listen_unix_socket}
+                                listen.owner                        = ${_pool_listen_unix_user}
+                                listen.group                        = ${_pool_listen_unix_group}
+EOF
+                            )"
+        ;;
+    esac
+    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-listener.conf"
+    echo "include = ${_phpfpm_pool_prefix}/${1,,}-listener.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+}
+
+phpfpm_configure_pool_log() {
+    _transform_phpfpmpool_variable "${1^^}" ENABLE_LOG _pool_enable_log
+
+    if var_true "${_pool_enable_log}" ; then
+        _transform_phpfpmpool_variable "${1^^}" LOG_PATH _pool_log_path
+        _transform_phpfpmpool_variable "${1^^}" LOG_ACCESS_FILE _pool_log_access_file
+        _transform_phpfpmpool_variable "${1^^}" LOG_ACCESS_FORMAT _pool_log_access_format
+
+        mkdir -p "${_pool_log_path}"
+        if [ "${_pool_log_access_file}" = "default-access.log" ] ; then _pool_log_access_file="${1,,}-access.log" ; fi
+        touch "${_pool_log_path%/}"/"${_pool_log_access_file}"
+        chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${_pool_log_path%/}"
+        create_logrotate phpfpm-${1,,}-access "$_pool_log_path%/}"/"${_pool_log_access_file}" php-fpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
+
+        if [ "${_pool_log_access_format,,}" = "standard" ] ; then
+            _pool_log_access_format=default
+        fi
+
+        configure_pool="$(cat <<EOF
+
+                            access.log                          = ${_pool_log_path%/}/${_pool_log_access_file}
+                            include                             = /container/data/php-fpm/fpm/${_pool_log_access_format,,}.logformat
+EOF
+                        )"
+
+        echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-log.conf"
+        echo "include = ${_phpfpm_pool_prefix}/${1,,}-log.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+    fi
+}
+
+phpfpm_configure_pool_environment() {
+    _transform_phpfpmpool_variable "${1^^}" ENV _pool_env
+    for pool_env in $(echo "${_pool_env}" | tr "," "\n" | uniq); do
+        if [ -f "${php_prefix%/}"/environment/"${pool_env}" ]; then
+            echo "include = ${php_prefix%/}/environment/${pool_env}" | silent tee -a "${_phpfpm_pool_prefix}".conf
+        fi
+    done
+}
+
+phpfpm_configure_pool_settings() {
+    _transform_phpfpmpool_variable "${1^^}" OUTPUT_BUFFER_SIZE _pool_output_buffer_size
+    _transform_phpfpmpool_variable "${1^^}" TIMEOUT _pool_max_execution_time
+    _transform_phpfpmpool_variable "${1^^}" MAX_INPUT_NESTING_LEVEL _pool_max_input_nesting_level
+    _transform_phpfpmpool_variable "${1^^}" MAX_INPUT_VARS _pool_max_input_vars
+    _transform_phpfpmpool_variable "${1^^}" MEMORY_LIMIT _pool_memory_limit
+    _transform_phpfpmpool_variable "${1^^}" POST_MAX_SIZE _pool_post_max_size
+    _transform_phpfpmpool_variable "${1^^}" UPLOAD_MAX_SIZE _pool_upload_max_size
+    _transform_phpfpmpool_variable "${1^^}" CATCH_WORKERS_OUTPUT _pool_catch_workers_output
+    _transform_phpfpmpool_variable "${1^^}" DISPLAY_ERRORS _pool_display_errors
+    _transform_phpfpmpool_variable "${1^^}" PING_PATH _pool_ping_path
+
+    configure_pool="$(cat <<EOF
+
+                        php_admin_value[max_execution_time]         = ${_pool_max_execution_time}
+                        php_admin_value[max_input_nesting_level]    = ${_pool_max_input_nesting_level}
+                        php_admin_value[max_input_vars]             = ${_pool_max_input_vars}
+                        php_admin_value[memory_limit]               = ${_pool_memory_limit}
+                        php_admin_value[openssl.cafile]             = /etc/ssl/certs/ca-certificates.crt
+                        php_admin_value[openssl.capath]             = /etc/ssl/certs
+                        php_admin_value[output_buffering]           = ${_pool_output_buffer_size}
+                        php_admin_value[post_max_size]              = ${_pool_post_max_size}
+                        php_admin_value[upload_max_filesize]        = ${_pool_upload_max_size}
+                        php_flag[display_errors]                    = ${_pool_display_errors,,}
+
+                        catch_workers_output                        = ${_pool_catch_workers_output,,}
+                        ping.path                                   = ${_pool_ping_path}
+
+EOF
+                    )"
+
+    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-settings.conf"
+    echo "include = ${_phpfpm_pool_prefix}/${1,,}-settings.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+
+}
+
+phpfpm_configure_pool_override() {
+    if [ -d /override/php-fpm/pool/"${1,,}" ]; then
+        echo "include = /override/php-fpm/pool/${1}/*.conf" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-override.conf"
+        echo "include = ${_phpfpm_pool_prefix}/${1,,}-override.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+    fi
+}
+
+phpfpm_configure_pool_processmanagement() {
+    _transform_phpfpmpool_variable "${1^^}" MAX_CHILDREN _pool_pm_max_children
+    _transform_phpfpmpool_variable "${1^^}" MAX_REQUESTS _pool_pm_max_requests
+    _transform_phpfpmpool_variable "${1^^}" MAX_SPARE_SERVERS _pool_pm_max_spare_servers
+    _transform_phpfpmpool_variable "${1^^}" MIN_SPARE_SERVERS _pool_pm_min_spare_servers
+    _transform_phpfpmpool_variable "${1^^}" PROCESS_MANAGER _pool_pm_process_manager
+    _transform_phpfpmpool_variable "${1^^}" START_SERVERS _pool_pm_start_servers
+    _transform_phpfpmpool_variable "${1^^}" STATUS_PATH _pool_pm_status_path
+    _transform_phpfpmpool_variable "${1^^}" PROCESS_IDLE_TIMEOUT _pool_pm_process_idle_timeout
+
+    configure_pool="$(cat <<EOF
+
+                        pm                                          = ${_pool_pm_process_manager}
+                        pm.max_children                             = ${_pool_pm_max_children}
+                        pm.max_requests                             = ${_pool_pm_max_requests}
+                        pm.max_spare_servers                        = ${_pool_pm_max_spare_servers}
+                        pm.min_spare_servers                        = ${_pool_pm_min_spare_servers}
+                        pm.process_idle_timeout                     = ${_pool_pm_process_idle_timeout}
+                        pm.start_servers                            = ${_pool_pm_start_servers}
+                        pm.status_path                              = ${_pool_pm_status_path}
+
+EOF
+                    )"
+
+    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-pm.conf"
+    echo "include = ${_phpfpm_pool_prefix}/${1,,}-pm.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+}
+
+phpfpm_create_default_page() {
+    if var_true "${PHP_ENABLE_CREATE_SAMPLE_PHP}" ; then
+        if [ ! -f "${NGINX_WEBROOT}"/index.php ] ; then
+            print_notice "Creating sample index.php"
+            mkdir -p "${NGINX_WEBROOT}"
+            cat <<EOF > "${NGINX_WEBROOT}"/index.php
+    <html>
+    <title>Default Page</title>
+    <h2>Container is working</h2>
+    Congratulations! Your ${IMAGE_NAME} ${os} PHP-FPM image is working. You are seeing this because you don't have an index.php file in your ${NGINX_WEBROOT} directory.<br />
+    <?php phpinfo();?>
+    </html>
+EOF
+        fi
+    fi
+}
+
+phpfpm_configure_site_default() {
+    if [ -z "${NGINX_SITE_ENABLED}" ] && [ ! -f "/etc/nginx/sites.available/default.conf" ] && [ -f "/container/init/init.d/20-php-fpm" ]; then
+        cat <<EOF > /etc/nginx/sites.available/default.conf
+    server {
+        ### Don't Touch This
+        listen ${NGINX_LISTEN_PORT};
+        root ${NGINX_WEBROOT};
+
+        ### Populate your custom directives here
+        index  index.php index.html index.htm;
+
+        location / {
+            try_files \$uri \$uri/ /index.php?\$args;
+        }
+
+        ### Populate your custom directives here
+        location ~ \.php(/|\$) {
+            include /etc/nginx/snippets/server.available/php-fpm.conf;
+            fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
+            fastcgi_param PATH_INFO \$fastcgi_path_info;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        }
+
+        ### Don't edit past here
+    }
+EOF
+        NGINX_SITE_ENABLED=default
+        nginx_site_enable default
+    fi
+}
+
+phpfpm_post_init() {
+    case "$(container_info distro)" in
+        "alpine" )
+            cp -aR /container/data/php-fpm/cli/php.ini "${php_prefix%/}"/
+            cp -aR /container/data/php-fpm/conf.available/* "${php_prefix%/}"/conf.available/
+        ;;
+        "debian" )
+            cp -aR /container/data/php-fpm/cli/php.ini "${php_root%/}"/
+            cp -aR /container/data/php-fpm/cli/php.ini "${php_prefix%/}"/
+        ;;
+    esac
+
+    case "$(container_info distro)" in
+        "alpine" )
+            ### Weird Opcache issue
+            if [ -f "${php_prefix%/}/conf.d/10-opcache.ini" ] && [ -f "${php_prefix%/}/conf.d/00-opcache.ini" ] ; then
+                rm -rf "${php_prefix%/}"/conf.d/00-opcache.ini
+            fi
+        ;;
+        "debian" )
+            ### Weird Opcache issue
+            if [ -f "${php_prefix%/}/conf.d/10-opcache.ini" ] && [ -f "${php_prefix%/}/fpm/conf.d/00-opcache.ini" ] ; then
+                rm -rf /etc/php/"${PHP_BASE}"/*/conf.d/00-opcache.ini
+            fi
+        ;;
+    esac
+
+    if var_false "${PHP_KITCHENSINK}" ; then
+        php_enable_create_sample_php=${PHP_ENABLE_CREATE_SAMPLE_PHP}
+        unset PHP_ENABLE_CREATE_SAMPLE_PHP
+        silent php-ext enable core
+        print_debug "PHP-FPM Preparing to start with the following modules enabled: $(set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE |sed -e 's/PHP_MODULE_ENABLE_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr '[A-Z]' '[a-z]')"
+    else
+        print_warn "Enabling Kitchen Sink mode and allowing all modules to be active"
+        silent php-ext enable all
+    fi
+
+    chmod -R 0755 "${php_prefix}"
+    chown -R root:"${PHPFPM_GROUP}" "${php_prefix}"
+}
+
+phpfpm_configure_server() {
+    echo "include = ${php_prefix%/}/php-fpm.d/logging.conf" | silent tee "${php_prefix%/}"/php-fpm.conf
+
+    for pools_to_include in "${php_prefix%/}"/pools.d/*.conf ; do
+        echo "include = ${pools_to_include}" | silent tee -a "${php_prefix%/}"/php-fpm.conf
+    done
+
+    if [ -d /override/data/php-fpm/fpm/ ]; then
+        for config_to_include in /override/data/php-fpm/fpm/* "${php_prefix%/}"/pools.d/*.conf ; do
+            echo "include = ${config_to_include}" | silent tee -a "${php_prefix%/}"/php-fpm.conf
+        done
+    fi
+
+    update_template /etc/nginx/snippets/server.available/php-fpm.conf PHPFPM_TIMEOUT
+
+    sed -i \
+                -e "s#memory_limit = .*#memory_limit = ${PHP_MEMORY_LIMIT}#g" \
+                -e "s#max_execution_time = .*#max_execution_time = ${PHP_TIMEOUT}#g" \
+                -e "s#max_input_time = .*#max_input_time = ${PHP_TIMEOUT}#g" \
+                -e "s#default_socket_timeout = .*#default_socket_timeout = ${PHP_TIMEOUT}#g" \
+                -e "s#post_max_size = .*#post_max_size = ${PHP_UPLOAD_MAX_SIZE}#g" \
+                -e "s#upload_max_filesize = .*#upload_max_filesize = ${PHP_UPLOAD_MAX_SIZE}#g" \
+           /container/data/php-fpm/cli/php.ini
+
+    call phpfpm_configure_server_smtp
+    call phpfpm_configure_server_timezone
+}
+
+phpfpm_configure_authentication_llng() {
+    print_notice "Adding LLNG Authentication parameters to nginx configuration"
+    header_num=$(printenv | sort | grep -c '^NGINX_AUTHENTICATION_LLNG_ATTRIBUTE.*')
+    for ((llngheader = 1; llngheader <= header_num; llngheader++)); do
+        headers=NGINX_AUTHENTICATION_LLNG_ATTRIBUTE${llngheader}
+        IFS=',' read -r -a array <<<"${!headers}"
+        print_notice "Updating Nginx to support receiving attribute from LLNG: '${array[0]}'"
+        echo "fastcgi_param ${array[0]} \$${array[1]};" >> /etc/nginx/snippets/authentication/llng-params
+        echo "auth_request_set \$${array[1]} \$${array[2]};" >> /etc/nginx/snippets/authentication/llng-auth_request
+    done
+    cp -R /etc/nginx/snippets/server.available/php-fpm.conf /etc/nginx/snippets/server.available/monitoring-php-fpm.conf
+    sed -i "s|include /etc/nginx/snippets/server.available/php-fpm.conf;|include /etc/nginx/snippets/server.available/metrics-php-fpm.conf;|g" /etc/nginx/snippets/server.available/metrics.conf
+    if ! grep -q "include /etc/nginx/snippets/authentication/llng-includes;" /etc/nginx/snippets/server.available/php-fpm.conf ; then
+        echo "include /etc/nginx/snippets/authentication/llng-includes;" >> /etc/nginx/snippets/server.available/php-fpm.conf
+    fi
+
+    if [ "${NGINX_SITE_ENABLED}" = "default" ] ; then
+        sed -i '/server {/a\ \ \ \ \  include /etc/nginx/snippets/authentication/llng_location_block;' /etc/nginx/sites.available/default.conf
+        sed -i '/server {/a\ \ \ \ \  ### LLNG Authentication handler' /etc/nginx/sites.available/default.conf
+        sed -i \
+                "/location \/ {/a\
+ \            ### LLNG Authentication handler \n\
+            include /etc/nginx/snippets/authentication/llng-auth_request;" \
+                /etc/nginx/sites.available/default.conf
+    fi
+}
+
+phpfpm_configure_modules_apc() {
+    if [ "${PHP_MODULE_APC_SHM_SIZE}" = "0" ]; then
+        sed -i -e "s/apc.enabled=1/apc.enabled=0/g" /container/data/php-fpm/conf.available/acpu.ini
+    fi
+
+    sed -i \
+            -e "s#apc.shm_size=.*#apc.shm_size=${PHP_MODULE_APC_SHM_SIZE}#g" \
+            -e "s#apc.ttl=.*#apc.ttl=${PHP_MODULE_APC_TTL}#g" \
+        /container/data/php-fpm//conf.available/apcu.ini
+}
+
+phpfpm_configure_modules_opcache() {
+    if [ "${PHP_MODULE_OPCACHE_MEM_SIZE}" = "0" ] || var_false "${PHP_MODULE_ENABLE_OPCACHE}" ; then
+        sed -i \
+                    -e "s/opcache.enable=1/opcache.enable=0/g" \
+                    -e "s/opcache.enable_cli=1/opcache.enable_cli=0/g" \
+                /container/data/php-fpm/conf.available/opcache.ini
+    else
+        sed -i \
+                -e "s#opcache.interned_strings_buffer=.*#opcache.interned_strings_buffer=${PHP_MODULE_OPCACHE_INTERNED_STRINGS_BUFFER}#g" \
+                -e "s#opcache.max_accelerated_files=.*#opcache.max_accelerated_files=${PHP_MODULE_OPCACHE_MAX_ACCELERATED_FILES}#g" \
+                -e "s#opcache.max_file_size=.*#opcache.max_file_size=${PHP_MODULE_OPCACHE_MAX_FILE_SIZE}#g" \
+                -e "s#opcache.max_wasted_percentage=.*#opcache.max_wasted_percentage=${PHP_MODULE_OPCACHE_MAX_WASTED_PERCENTAGE}#g" \
+                -e "s#opcache.memory_consumption=.*#opcache.memory_consumption=${PHP_MODULE_OPCACHE_MEM_SIZE}#g" \
+                -e "s#opcache.optimization_level=.*#opcache.optimization_level=${PHP_MODULE_OPCACHE_OPTIMIZATION_LEVEL}#g" \
+                -e "s#opcache.reavalidate_freq=.*#opcache.revalidate_freq=${PHP_MODULE_OPCACHE_REVALIDATE_FREQ}#g" \
+                -e "s#opcache.revalidate_freq=.*#opcache.revalidate_freq=${PHP_MODULE_OPCACHE_REVALIDATE_FREQ}#g" \
+                -e "s#opcache.save_comments=.*#opcache.save_comments=${PHP_MODULE_OPCACHE_SAVE_COMMENTS}#g" \
+                -e "s#opcache.validate_timestamps=.*#opcache.validate_timestamps=${PHP_MODULE_OPCACHE_VALIDATE_TIMESTAMPS}#g" \
+           /container/data/php-fpm/conf.available/opcache.ini
+
+        if [ "${PHP_BASE:0:1}" = "7" ] ; then
+            sed -i "/opcache.jit/d" /container/data/php-fpm/conf.available/opcache.ini
+        else
+            sed -i \
+                        -e "s#opcache.jit_buffer_size=.*#opcache.jit_buffer_size=${PHP_MODULE_OPCACHE_JIT_BUFFER_SIZE}#g" \
+                        -e "s#opcache.jit=.*#opcache.jit=${PHP_MODULE_OPCACHE_JIT_MODE}#g" \
+                    /container/data/php-fpm/conf.available/opcache.ini
+        fi
+
+        if var_true "${CONTAINER_ENABLE_MONITORING}" && [ "${CONTAINER_MONITORING_BACKEND,,}" = "zabbix" ]; then
+            source /container/defaults/*-monitoring
+            cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}.d"/tiredofit-php_module_opcache.conf
+  # Zabbix PHP Opcache Configuration - Automatically Generated
+  # Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
+  # Autoregister=opcache
+
+  UserParameter=php.opcache.get_status,sudo -Eu zabbix php /etc/zabbix/zabbix_agentd.conf.d/scripts/php/opcache-status.php
+  UserParameter=php.opcache.get_settings,sudo -Eu zabbix php /etc/zabbix/zabbix_agentd.conf.d/scripts/php/opcache-settings.php
+EOF
+        fi
+    fi
+}
+
+phpfpm_configure_modules_xdebug() {
+    if var_true "${PHP_MODULE_ENABLE_XDEBUG}" ; then
+        mkdir "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
+        chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
+        if [ "${PHP_BASE:0:1}" = "5" ] || [ "${PHP_BASE:0:3}" = "7.0" ] || [ "${PHP_BASE:0:3}" = "7.1" ] ; then
+            cat <<EOF >> "${php_prefix}"conf.available/xdebug.ini
+zend_extension=xdebug.so
+xdebug.default_enable = 1
+xdebug.profiler_enable= ${PHP_MODULE_XDEBUG_PROFILER_ENABLE}
+xdebug.profiler_enable_trigger= ${PHP_MODULE_XDEBUG_PROFILER_ENABLE_TRIGGER}
+xdebug.profiler_output_dir='${PHP_MODULE_XDEBUG_PROFILER_DIR}'
+xdebug.remote_autostart = ${PHP_MODULE_XDEBUG_REMOTE_AUTOSTART}
+xdebug.remote_connect_back = ${PHP_MODULE_XDEBUG_REMOTE_CONNECT_BACK}
+xdebug.remote_enable = ${PHP_MODULE_XDEBUG_REMOTE_ENABLE}
+xdebug.remote_handler = ${PHP_MODULE_XDEBUG_REMOTE_HANDLER}
+xdebug.remote_host = ${PHP_MODULE_XDEBUG_REMOTE_HOST}
+xdebug.remote_port = ${PHP_MODULE_XDEBUG_REMOTE_PORT}
+EOF
+    	else
+	    	cat <<EOF >> "${php_prefix}"conf.available/xdebug.ini
+zend_extension=xdebug.so
+xdebug.default_enable = 1
+xdebug.output_dir = ${PHP_MODULE_XDEBUG_OUTPUT_DIR}
+xdebug.mode = ${PHP_MODULE_XDEBUG_MODE}
+xdebug.start_with_request = ${PHP_MODULE_XDEBUG_START_WITH_REQUEST}
+xdebug.discover_client_host = ${PHP_MODULE_XDEBUG_DISCOVER_CLIENT_HOST}
+xdebug.client_host = ${PHP_MODULE_XDEBUG_CLIENT_HOST}
+xdebug.client_port = ${PHP_MODULE_XDEBUG_CLIENT_PORT}
+EOF
+    	fi
+        PHP_LOG_LEVEL=debug
+        print_notice "DEBUGGING MODE ACTIVATED: Please use your IDE to connect to: ${PHP_MODULE_XDEBUG_REMOTE_HOST}:${PHP_MODULE_XDEBUG_REMOTE_PORT}"
+        if [ "${PHP_MODULE_XDEBUG_PROFILER_ENABLE}" = "1" ] || [ "${PHP_MODULE_XDEBUG_MODE}" = "trace" ]; then
+            print_notice "PROFILING MODE ACTIVATED: Please find the profiler logs at: ${PHP_MODULE_XDEBUG_PROFILER_PATH}"
+            mkdir "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
+            chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
+        fi
+    fi
+}
+
+phpfpm_configure_server_smtp() {
+    if var_true "${CONTAINER_ENABLE_MESSAGING}" || [ "${CONTAINER_MESSAGING_BACKEND}" = "msmtp" ] ; then
+        case "$(container_info distro)" in
+            "alpine" )
+                  if var_true "${CONTAINER_ENABLE_MESSAGING}" || [ "${CONTAINER_MESSAGING_BACKEND}" = "msmtp" ] ; then
+                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' > "${php_prefix%/}"/conf.d/99-smtp.ini
+                  fi
+              ;;
+            "debian" )
+                if var_true "${ENABLE_SMTP}" || var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
+                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' > "${php_root%/}"/cli/conf.d/99-smtp.ini
+                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' > "${php_prefix%/}"/conf.d/99-smtp.ini
+                fi
+            ;;
+        esac
+
+        if [ -f /etc/msmtprc ]; then
+            chown "${PHPFPM_USER}":"${PHPFPM_GROUP}" /etc/msmtprc
+            chmod 0600 /etc/msmtprc
+        fi
+    fi
+}
+
+phpfpm_configure_server_timezone() {
+     sed -i \
+                -e "s#date.timezone = .*#date.timezone = $(cat /etc/timezone)#g" \
+                                                                                    /container/data/php-fpm/cli/php.ini \
+                                                                                    /container/data/php-fpm/fpm/php.ini
+    case "$(container_info distro)" in
+        "alpine" )
+            echo "date.timezone=$(cat /etc/timezone)" > "${php_prefix%/}"/conf.d/99-timezone.ini
+        ;;
+        "debian" )
+            echo "date.timezone=$(cat /etc/timezone)" > "${php_root%/}"/cli/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" > "${php_prefix%/}"/conf.d/99-timezone.ini
+        ;;
+    esac
+}
+
+phpfpm_configure_server_socket() {
+:
+}
+
+phpfpm_configure_nginx_hide_header() {
+    if var_true "${PHP_HIDE_X_POWERED_BY}" ; then
+        sed -i "/fastcgi_buffer_size/a \    fastcgi_hide_header X-Powered-By;" /etc/nginx/nginx.conf
+    fi
+}

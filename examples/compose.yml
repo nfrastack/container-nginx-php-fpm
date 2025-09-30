@@ -1,17 +1,17 @@
 services:
-  nginx-php-fpm-app:
-    image: tiredofit/nginx-php-fpm/8.3-alpine
-    container_name: nginx-php-fpm-app
+  npf-app:
+    image: docker.io/nfrastack/nginx-php-fpm/8.3-alpine
+    container_name: npf-app
     labels:
       - traefik.enable=true
-      - traefik.http.routers.nginx-php-fpm-app.rule=Host(`nginx.example.com`)
-      - traefik.http.services.nginx-php-fpm-app.loadbalancer.server.port=80
+      - traefik.http.routers.npf.rule=Host(`npf.example.com`)
+      - traefik.http.services.npf.loadbalancer.server.port=80
     volumes:
       - ./data/:/www/html
-      - ./logs/:/www/logs
+      - ./logs/:/logs
     environment:
       - TIMEZONE=America/Vancouver
-      - CONTAINER_NAME=nginx-php-fpm-app-app
+      - CONTAINER_NAME=npf-app
     networks:
       - services
       - proxy

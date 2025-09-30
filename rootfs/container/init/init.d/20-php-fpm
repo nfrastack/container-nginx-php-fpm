@@ -1,0 +1,55 @@
+#!/command/with-contenv bash
+# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+source /container/base/functions/container/init
+prepare_service *-nginx single
+prepare_service 20-php-fpm single
+SERVICE_NAME="php-fpm"
+
+if var_false "${ENABLE_PHPFPM}" ; then
+    print_notice "Disabling PHP-FPM Functionality"
+    service_stop 20-php-fpm
+    rm -rf /container/logrotate/php-fpm*
+    rm -rf /etc/logrotate.d/php-fpm*
+    rm -rf /etc/fluent-bit/conf.d/php*
+    rm -rf /etc/zabbix/*/php*.conf
+    liftoff
+    exit 0
+fi
+
+case "${PHPFPM_CONTAINER_MODE,,}" in
+      "nginx")
+            print_warn "Setting Container to operate in Nginx standalone mode"
+            if [ "${PHP_FPM_HOST}" = "127.0.0.1" ] || [ "${PHP_FPM_HOST}" = "localhost" ] ; then
+              print_error "Your PHP_FPM_HOST variable is still set to 'localhost' Please change it to something else"
+              exit 1
+            fi
+            service_stop "$(basename "$0")"
+            rm -rf /etc/zabbix/zabbix_agent.conf.d/php-fpm.conf
+            liftoff
+            exit 0
+      ;;
+      "php-fpm")
+            print_warn "Setting Container to operate in PHP-FPM standalone mode - You will need a seperate container for Nginx or another webserver to serve content"
+            mod_service_stop 10-nginx
+            print_notice "Setting PHP-FPM to serve from ${PHP_WEBROOT}"
+            sed -i "/[www]#/achdir = ${PHP_WEBROOT}" /container/data/php-fpm/fpm/php-fpm.conf
+            rm -rf /etc/zabbix/zabbix_agent.conf.d/nginx.conf
+      ;;
+esac
+
+if [ ! -f "/container/state/restart" ] ; then
+    #phpfpm_bootstrap_filesystem
+    phpfpm_bootstrap
+    phpfpm_configure_logging
+    phpfpm_configure_environment_variables
+    phpfpm_configure_modules
+    phpfpm_configure_pools
+    phpfpm_configure_server
+    if [[ "${PHPFPM_CONTAINER_MODE,,}" == *"nginx"* ]] ; then phpfpm_configure_nginx ; fi
+    if [[ "${PHPFPM_CONTAINER_MODE,,}" == *"php-fpm"* ]] ; then phpfpm_create_default_page ; fi
+    phpfpm_post_init
+fi
+liftoff

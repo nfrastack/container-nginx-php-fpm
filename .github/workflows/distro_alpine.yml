@@ -37,7 +37,7 @@ jobs:
           name: encrypted-artifacts
           path: ./
       - name: Build Image
-        uses: nfrastack/gha/.github/actions/build_multi_image@main
+        uses: nfrastack/gha/.github/actions/build_phpfpm_multi_image@main
         with:
           docker_username: ${{ secrets.DOCKER_USERNAME }}
           docker_password: ${{ secrets.DOCKER_PASSWORD }}

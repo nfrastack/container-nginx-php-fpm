@@ -1,0 +1,159 @@
+name: "Docker Login"
+description: "Logs into DockerHub and GitHub Container Registry"
+inputs:
+  docker_username:
+    description: "DockerHub Username"
+    required: true
+  docker_password:
+    description: "DockerHub Password"
+    required: true
+  github_token:
+    description: "GitHub Token for GitHub Container Registry"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Login to DockerHub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.docker_username }}
+        password: ${{ inputs.docker_password }}
+
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github_token }}
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Do we need to clean the repository
+      id: clean
+      shell: bash
+      run: |
+        if [ -f "cleanup.sh" ] ; then
+          chmod +x cleanup.sh
+          ./cleanup.sh
+        fi
+
+    - name: Determine Branch Name and Set Variables
+      id: prep
+      shell: bash
+      run: |
+        if [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+            if [[ "${GITHUB_REF}" == refs/heads/*/* ]] ; then
+                git_branch="${GITHUB_REPOSITORY/container-/}:$(echo $GITHUB_REF | sed "s|refs/heads/||g" | sed "s|/|-|g")"
+            else
+                git_branch=${GITHUB_REF#refs/heads/}
+            fi
+
+            case "${git_branch}" in
+                "main" | "master" )
+                    case "${DISTRO,,}" in
+                    # ALPINE_VARIANT_LATEST : 3.22 PHP_BASE_LATEST: 8.4
+                      "alpine" )
+                        # Only the default image_variant gets the :alpine and :8.4-alpine tags
+                        if [ "${IMAGE_VARIANT}" = "faflopza" ]; then
+                          if [ "${ALPINE_VARIANT_LATEST}" = "${DISTRO_VARIANT}" ]; then
+                            variant_latest=",${GITHUB_REPOSITORY}:alpine"
+                          fi
+                          if [ "${PHP_BASE_LATEST}" = "${PHP_BASE}" ] && [ "${ALPINE_VARIANT_LATEST}" = "${DISTRO_VARIANT}" ]; then
+                            php_base_latest=",${GITHUB_REPOSITORY}:${PHP_BASE}-alpine"
+                          fi
+                        fi
+                        # Tag as :8.3-alpine, :8.4-alpine, etc. for all PHP_BASE
+                        php_base_tag=",${GITHUB_REPOSITORY}:${PHP_BASE}-alpine"
+                      ;;
+                      "debian" )
+                        if [ "${DEBIAN_VARIANT_LATEST}" = "${DISTRO_VARIANT}" ]; then
+                          variant_latest=",${GITHUB_REPOSITORY}:debian"
+                        fi
+                      ;;
+                    esac
+
+                    build_identity="${PHP_BASE}-${DISTRO,,}_${DISTRO_VARIANT,,}${IMAGE_VARIANT:+_${IMAGE_VARIANT,,}}"
+
+                    # Only add 'latest' if LATEST is 'true', or matches the build identity or just the distro
+                    if [[ "${LATEST}" == "${build_identity}" ]]; then
+                      image_latest=",${GITHUB_REPOSITORY}:latest"
+                    fi
+                    # Compose all tags for this build
+                    extra_tags="${variant_latest}${php_base_latest}${php_base_tag}${image_latest}"
+                    if [ "${IMAGE_VARIANT}" = "faflopza" ]; then
+                      branch_tag="${GITHUB_REPOSITORY}:${PHP_BASE}-${DISTRO,,}_${DISTRO_VARIANT,,}_${IMAGE_VARIANT,,}${extra_tags}"
+                    else
+                      branch_tag="${GITHUB_REPOSITORY}:${PHP_BASE}-${DISTRO,,}_${DISTRO_VARIANT,,}_${IMAGE_VARIANT,,}${extra_tags}"
+                    fi
+                ;;
+                "develop" )
+                    branch_tag="${GITHUB_REPOSITORY}:develop"
+                ;;
+            esac
+        fi
+
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          if [ "${IMAGE_VARIANT}" = "faflopza" ]; then
+            git_tag="${GITHUB_REPOSITORY}:$(echo ${GITHUB_REF}-${PHP_BASE}-${DISTRO,,}_${DISTRO_VARIANT,,} | sed 's|refs/tags/||g')"
+          else
+            git_tag="${GITHUB_REPOSITORY}:$(echo ${GITHUB_REF}-${PHP_BASE}-${DISTRO,,}_${DISTRO_VARIANT,,}_${IMAGE_VARIANT,,} | sed 's|refs/tags/||g')"
+          fi
+        fi
+
+        if [ -n "${branch_tag}" ] && [ -n "${git_tag}" ]; then
+            image_tags=${branch_tag},${git_tag}
+        else
+            image_tags="${branch_tag}${git_tag}"
+        fi
+
+        echo "dockerhub_repo=${GITHUB_REPOSITORY/container-/}" >> $GITHUB_ENV
+        dockerhub_images=$(echo "${image_tags}" | sed "s|${GITHUB_REPOSITORY}|docker.io/${GITHUB_REPOSITORY/container-/}|g")
+        ghcr_images=$(echo "${image_tags}" | sed "s|${GITHUB_REPOSITORY}|ghcr.io/${GITHUB_REPOSITORY}|g")
+        echo "container_images=${dockerhub_images},${ghcr_images}" >> $GITHUB_OUTPUT
+    - name: Label
+      id: Label
+      shell: bash
+      run: |
+        image_name=${GITHUB_REPOSITORY/container-/}
+        if [ -f "Containerfile" ] ; then
+            sed -i \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.git_repository=\"https://github.com/${GITHUB_REPOSITORY}\"" \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.git_commit=\"${GITHUB_SHA}\"" \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.git_committed_by=\"${GITHUB_ACTOR}\"" \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.image_build_date=\"$(date +'%Y-%m-%d %H:%M:%S')\"" \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.distro=\"${DISTRO}\"" \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.distro_variant=\"${DISTRO_VARIANT}\"" \
+                    -e "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.image_variant=\"${IMAGE_VARIANT}\"" \
+                    -e "/FROM .*/a LABEL org.opencontainers.image.source=\"https://github.com/${GITHUB_REPOSITORY}\"" \
+                  Containerfile
+
+            if [[ $GITHUB_REF == refs/tags/* ]]; then
+                sed -i "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.git_tag=\"${GITHUB_REF#refs/tags/v}\"" Containerfile
+            fi
+
+           if [[ $GITHUB_REF == refs/heads/* ]]; then
+                sed -i "/FROM .*/a LABEL ${GITHUB_REPOSITORY_OWNER}.${image_name}.git_branch=\"${GITHUB_REF#refs/heads/}\"" Containerfile
+            fi
+        fi
+
+    - name: Build
+      if: github.event_name != 'pull_request'
+      uses: docker/build-push-action@v6
+      with:
+        builder: ${{ steps.buildx.outputs.name }}
+        context: .
+        file: ./Containerfile
+        platforms: ${{ env.ARCH }}
+        push: true
+        tags: ${{ steps.prep.outputs.container_images }}
+        build-args: |
+          BASE_IMAGE=${{ env.BASE_IMAGE }}
+          DISTRO=${{ env.DISTRO }}
+          PHP_BASE=${{ env.PHP_BASE }}
+          DISTRO_VARIANT=${{ env.IMAGE_VARIANT && format('{0}_{1}', env.DISTRO_VARIANT, env.IMAGE_VARIANT) || env.DISTRO_VARIANT }}
+          ${{ env.IMAGE_VARIANT && format('IMAGE_VARIANT={0}', env.IMAGE_VARIANT) || '' }}

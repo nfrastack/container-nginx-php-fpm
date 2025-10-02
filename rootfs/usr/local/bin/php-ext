@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 source /container/base/functions/container/init
+source /container/defaults/20-php-fpm
 
 get_php_env_modules_enabled() {
   set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE | cut -d _ -f 4- | cut -d = -f 1 | tr A-Z a-z

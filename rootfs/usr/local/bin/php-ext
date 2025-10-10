@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 source /container/base/functions/container/init
+source /container/defaults/20-php-fpm
 
 php_version=$(php -v 2>/dev/null | grep "^PHP " | head -n 1 | awk '{print $2}')
 php_base=${php_version:0:3}

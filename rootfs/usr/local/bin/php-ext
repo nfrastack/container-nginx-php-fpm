@@ -6,33 +6,124 @@
 source /container/base/functions/container/init
 source /container/defaults/20-php-fpm
 
-get_php_env_modules_enabled() {
-  set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE | cut -d _ -f 4- | cut -d = -f 1 | tr A-Z a-z
-}
-
-php_major_version="$(echo ${PHP_BASE} | cut -c 1-1)"
+php_version=$(php -v 2>/dev/null | grep "^PHP " | head -n 1 | awk '{print $2}')
+php_base=${php_version:0:3}
 
 case "$(container_info distro)" in
     "alpine" )
-        case "${PHP_BASE}" in
+        case "${php_version:0:3}" in
             8*)
-                php_prefix="/etc/php${PHP_BASE/./}/"
+                php_prefix="/etc/php${php_base/./}/"
             ;;
             * )
-                php_prefix="/etc/php$(php -v 2>/dev/null | grep "^PHP " | head -n 1 | awk '{print $2}' | cut -c 1)/"
+                php_prefix="/etc/php${php_version:0:1}/"
             ;;
         esac
         modules_available="${php_prefix}/conf.available/"
     ;;
     "debian" )
-        php_prefix="/etc/php/$(php -v 2>/dev/null | grep "^PHP " | head -n 1 | awk '{print $2}' | cut -c 1-3)/"
+        php_prefix="/etc/php/${php_base}/"
         modules_available="${php_prefix}/mods-available/"
     ;;
 esac
 
-if [ "${PHP_MODULE_ENABLE_OPENSSL,,}" = "true" ] && [ ! -f "${modules_available}"/openssl.ini ]; then
-    export PHP_MODULE_ENABLE_OPENSSL=FALSE
-fi
+disable_module() {
+    if [ -n "$1" ]; then
+        case "$1" in
+            "all" )
+                echo "**Disabling All Modules"
+                for module in "${modules_available}"/*.ini ; do
+                    case "$(container_info distro)" in
+                        "alpine" )
+                            rm -f "${php_prefix}"/conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
+                        ;;
+                        "debian" )
+                            silent phpdismod $(basename $module .ini)
+                        ;;
+                    esac
+                done
+            ;;
+            "core" )
+                php_env_modules_enabled=$(get_php_env_modules_enabled)
+                for module in $php_env_modules_enabled ; do
+                    if [ -f "${modules_available}/${module}.ini" ]; then
+                        echo "Disabling ${module}"
+                        case "$(container_info distro)" in
+                            "alpine" )
+                                rm -f ${php_prefix}/conf.d/$(cat ${modules_available}/${module}.ini | grep ";priority" | cut -d = -f 2)-${module}.ini
+                            ;;
+                            "debian" )
+                                silent phpdismod $(basename ${module} .ini)
+                                if [ "${php_major_version}" != "8" ] ; then phpdismod json ; fi
+                                if [[ "$( ls -l ${php_prefix}/fpm/conf.d/*-opcache.ini |  wc -l )" -ge 1 ]] ; then
+                                    rm -f "$(ls ${php_prefix}/fpm/conf.d/*-opcache.ini | tail -1 )"
+                                fi
+                                if [[ "$( ls -l ${php_prefix}/cli/conf.d/*-opcache.ini |  wc -l )" -ge 1 ]] ; then
+                                    rm -f "$(ls ${php_prefix}/cli/conf.d/*-opcache.ini | tail -1 )"
+                                fi
+                            ;;
+                        esac
+                        php_script_modules_disabled="${php_actual_modules_disabled} $(basename ${module} .ini)"
+                    else
+                        echo "** Requested disabling ${module} however it doesn't exist!"
+                    fi
+                done
+            ;;
+            "optional" )
+                php_env_modules_enabled=$(get_php_env_modules_enabled)
+                echo "** Disabling Optional Modules"
+                for module in ${modules_available}/*.ini; do
+                    MATCH=0
+                    for plugin in $php_env_modules_enabled ; do
+                        if [ "$(basename ${module} .ini)" = "${plugin}" ] ; then
+                            (( MATCH+=1 ))
+                        fi
+                    done
+
+                    if [[ "$MATCH" -lt 1 ]] ; then
+                        echo "Disabling $(basename $module .ini)"
+                        case "$(container_info distro)" in
+                            "alpine" )
+                                rm -f "${php_prefix}"conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
+                            ;;
+                            "debian" )
+                                silent phpdismod $(basename ${module} .ini)
+                            ;;
+                        esac
+                    fi
+                done
+            ;;
+            reset )
+                case "$(container_info distro)" in
+                    "alpine" )
+                        rm -rf ${php_prefix}conf.d/*
+                    ;;
+                    "debian" )
+                        rm -rf ${php_prefix}/*/conf.d/*
+                    ;;
+                esac
+            ;;
+            * )
+                if [ -f "${modules_available}/${1}.ini" ]; then
+                    echo "Disabling ${1}"
+                        case "$(container_info distro)" in
+                            "alpine" )
+                                rm -f ${php_prefix}conf.d/$(cat ${modules_available}/${1}.ini | grep ";priority" | cut -d = -f 2)-$1.ini
+                            ;;
+                            "debian" )
+                                silent phpdismod ${1}
+                            ;;
+                        esac
+                else
+                    echo "** Requested disabling '$1' module however it doesn't exist!"
+                fi
+            ;;
+        esac
+    else
+       echo "** Disable Module"
+       echo "Commands: all | core | optional | (modulename)"
+    fi
+}
 
 enable_module () {
     if [ -n "${1}" ]; then
@@ -146,101 +237,29 @@ enable_module () {
     fi
 }
 
-disable_module() {
-    if [ -n "$1" ]; then
-        case "$1" in
-            "all" )
-                echo "**Disabling All Modules"
-                for module in "${modules_available}"/*.ini ; do
-                    case "$(container_info distro)" in
-                        "alpine" )
-                            rm -f "${php_prefix}"/conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
-                        ;;
-                        "debian" )
-                            silent phpdismod $(basename $module .ini)
-                        ;;
-                    esac
-                done
-            ;;
-            "core" )
-                php_env_modules_enabled=$(get_php_env_modules_enabled)
-                for module in $php_env_modules_enabled ; do
-                    if [ -f "${modules_available}/${module}.ini" ]; then
-                        echo "Disabling ${module}"
-                        case "$(container_info distro)" in
-                            "alpine" )
-                                rm -f ${php_prefix}/conf.d/$(cat ${modules_available}/${module}.ini | grep ";priority" | cut -d = -f 2)-${module}.ini
-                            ;;
-                            "debian" )
-                                silent phpdismod $(basename ${module} .ini)
-                                if [ "${php_major_version}" != "8" ] ; then phpdismod json ; fi
-                                if [[ "$( ls -l ${php_prefix}/fpm/conf.d/*-opcache.ini |  wc -l )" -ge 1 ]] ; then
-                                    rm -f "$(ls ${php_prefix}/fpm/conf.d/*-opcache.ini | tail -1 )"
-                                fi
-                                if [[ "$( ls -l ${php_prefix}/cli/conf.d/*-opcache.ini |  wc -l )" -ge 1 ]] ; then
-                                    rm -f "$(ls ${php_prefix}/cli/conf.d/*-opcache.ini | tail -1 )"
-                                fi
-                            ;;
-                        esac
-                        php_script_modules_disabled="${php_actual_modules_disabled} $(basename ${module} .ini)"
-                    else
-                        echo "** Requested disabling ${module} however it doesn't exist!"
-                    fi
-                done
-            ;;
-            "optional" )
-                php_env_modules_enabled=$(get_php_env_modules_enabled)
-                echo "** Disabling Optional Modules"
-                for module in ${modules_available}/*.ini; do
-                    MATCH=0
-                    for plugin in $php_env_modules_enabled ; do
-                        if [ "$(basename ${module} .ini)" = "${plugin}" ] ; then
-                            (( MATCH+=1 ))
-                        fi
-                    done
 
-                    if [[ "$MATCH" -lt 1 ]] ; then
-                        echo "Disabling $(basename $module .ini)"
-                        case "$(container_info distro)" in
-                            "alpine" )
-                                rm -f "${php_prefix}"conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
-                            ;;
-                            "debian" )
-                                silent phpdismod $(basename ${module} .ini)
-                            ;;
-                        esac
-                    fi
-                done
+info() {
+    if [ -n "${1}" ]; then
+        case "${1,,}" in
+            "base" )
+                echo "${php_base}"
             ;;
-            reset )
-                case "$(container_info distro)" in
-                    "alpine" )
-                        rm -rf ${php_prefix}conf.d/*
-                    ;;
-                    "debian" )
-                        rm -rf ${php_prefix}/*/conf.d/*
-                    ;;
-                esac
+            "help" )
+                echo "Commands: base | modules_path | prefix | version"
             ;;
-            * )
-                if [ -f "${modules_available}/${1}.ini" ]; then
-                    echo "Disabling ${1}"
-                        case "$(container_info distro)" in
-                            "alpine" )
-                                rm -f ${php_prefix}conf.d/$(cat ${modules_available}/${1}.ini | grep ";priority" | cut -d = -f 2)-$1.ini
-                            ;;
-                            "debian" )
-                                silent phpdismod ${1}
-                            ;;
-                        esac
-                else
-                    echo "** Requested disabling '$1' module however it doesn't exist!"
-                fi
+            "modules_path" )
+                echo "${modules_available}"
+            ;;
+            "prefix" )
+                echo "${php_prefix}"
+            ;;
+            "version" )
+                echo "${php_version}"
             ;;
         esac
     else
-       echo "** Disable Module"
-       echo "Commands: all | core | optional | (modulename)"
+        echo "** Info"
+        echo "Commands: base | modules_path | prefix | version"
     fi
 }
 
@@ -289,21 +308,24 @@ list_module() {
 }
 
 display_help() {
-    echo "PHP Module Tool - Use this to "
-    echo "Syntax: $(basename $0) <command> <argument>"
-    echo ""
-    echo "Command: enable | disable | list | help"
-    echo "enable - Enable a module for usage"
-    echo "disable - Disable a mdule for usage"
-    echo "list - List available modules"
-    echo "help - This is it"
-    echo ""
-    echo "Argument all | core | optional | <module_name>"
-    echo ""
-    echo "all - Every Module"
-    echo "core - Modules set via environment variable PHP_MODULE_ENABLE_*=TRUE"
-    echo "optional - All other modules not explicitly set with PHP_MODULE_ENABLE_*=TRUE"
-    echo "module_name - The PHP Extension name ie 'redis'"
+    cat <<EOF
+
+    PHP Module Tool - Use this to
+    Syntax: $(basename $0) <command> <argument>
+
+    Command: enable | disable | list | help
+       enable - Enable a module for usage
+       disable - Disable a mdule for usage
+       info - Get information about the PHP install
+       list - List available modules
+       help - This is it
+
+    Argument: all | core | optional | <module_name>
+       all - Every Module
+       core - Modules set via environment variable PHP_MODULE_ENABLE_*=TRUE
+       optional - All other modules not explicitly set with PHP_MODULE_ENABLE_*=TRUE
+       module_name - The PHP Extension name ie 'zip'
+EOF
 }
 
 prepare() {
@@ -328,6 +350,13 @@ prepare() {
     esac
 }
 
+get_php_env_modules_enabled() {
+    set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE | cut -d _ -f 4- | cut -d = -f 1 | tr A-Z a-z
+}
+
+if [ "${PHP_MODULE_ENABLE_OPENSSL,,}" = "true" ] && [ ! -f "${modules_available}"/openssl.ini ]; then
+    export PHP_MODULE_ENABLE_OPENSSL=FALSE
+fi
 
 if [ -n "$1" ] ; then
     case "${1,,}" in
@@ -343,6 +372,9 @@ if [ -n "$1" ] ; then
                 pkill php-fpm
             fi
         ;;
+        "info" )
+            info "$2"
+        ;;
         "list" )
             list_module "$2"
         ;;
@@ -355,5 +387,5 @@ if [ -n "$1" ] ; then
     esac
 else
     echo "PHP Module Tool"
-    echo "Commands: enable | disable | list | help"
+    echo "Commands: enable | disable | list | info | help"
 fi

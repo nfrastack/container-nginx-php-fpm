@@ -54,34 +54,30 @@ docker.io/nfrastack/nginx-php-fpm:(image_tag)
 
 Image tag syntax is:
 
-`<image>:<branch>-<optional tag>`
+`<image>:<optional tag>-<optional phpversion>-<optional distro>-<optional distro_variant>`
 
 Example:
 
 `ghcr.io/nfrastack/container-nginx-php-fpm:latest` or
 
-`ghcr.io/nfrastack/container-nginx-php-fpm:3.5-1.0`
+`ghcr.io/nfrastack/container-nginx-php-fpm:1.0-8.4-debian_trixie`
 
-* `branch` will be the repositories branch, typically matching with the version of nginx-php-fpm eg `3.5`
 * `latest` will be the most recent commit
+
 * An optional `tag` may exist that matches the [CHANGELOG](CHANGELOG.md) - These are the safest
 
 | PHP version | Alpine Base | Tag            | Debian Base | Tag                    |
 | ----------- | ----------- | -------------- | ----------- | ---------------------- |
 | latest      | edge        | `:alpine-edge` |             |                        |
-| 8.4.x       | 3.22        | `:8.3-alpine`  | Bookworm    | `:8.4-debian-bookworm` |
-| 8.3.x       | 3.20        | `:8.3-alpine`  | Bookworm    | `:8.3-debian-bookworm` |
-| 8.2.x       | 3.20        | `:8.2-alpine`  | Bookworm    | `:8.2-debian-bookworm` |
-| 8.1.x       | 3.19        | `:8.1-alpine`  | Bookworm    | `:8.1-debian-bookworm` |
-| 8.0.x       | 3.16        | `:8.0-alpine`  | Bookworm    | `:8.0-debian-bookworm` |
-| 7.4.x       | 3.15        | `:7.4-alpine`  | Bookworm    | `:7.4-debian-bookworm` |
-| 7.3.x       | 3.12        | `:7.3-alpine`  | Bookworm    | `:7.3-debian-bookworm` |
-| 7.2.x       | 3.9         | `:7.2-alpine`  |             |                        |
-| 7.1.x       | 3.7         | `:7.1-alpine`  |             |                        |
-| 7.0.x       | 3.5         | `:7.0-alpine`  |             |                        |
-| 5.6.x       | 3.8         | `:5.6-alpine`  |             |                        |
-| 5.5.x       | 3.4         | `:5.5-latest`  |             |                        |
-| 5.3.x       | 3.4         | `:5.3-latest`  |             |                        |
+| 8.4.x       | 3.22        | `:8.4-alpine`  | Trixie      | `:8.4-debian`          |
+|             |             |                | Bookworm    | `:8.4-debian_bookworm` |
+| 8.3.x       | 3.22        | `:8.3-alpine`  | Bookworm    | `:8.3-debian_trixie`   |
+|             |             |                | Trixie      | `:8.3-debian`          |
+| 8.2.x       | 3.22        | `:8.2-alpine`  | Trixie      | `:8.2-debian`          |
+|             |             |                | Bookworm    | `:8.2-debian_bookworm` |
+| 8.1.x       | 3.19        | `:8.1-alpine`  |             |                        |
+| 8.0.x       | 3.16        | `:8.0-alpine`  |             |                        |
+
 
 Have a look at the container registries and see what tags are available.
 
@@ -150,9 +146,10 @@ The following directories/files should be mapped for persistent storage in order
 This image relies on a customized base image in order to work.
 Be sure to view the following repositories to understand all the customizable options:
 
-| Image                                                   | Description |
-| ------------------------------------------------------- | ----------- |
-| [OS Base](https://github.com/nfrastack/container-base/) | Base Image  |
+| Image                                                   | Description     |
+| ------------------------------------------------------- | --------------- |
+| [OS Base](https://github.com/nfrastack/container-base/) | Base Image      |
+| [Nginx](https://github.com/nfrastack/container-nginx/)  | Nginx Webserver |
 
 Below is the complete list of available options that can be used to customize your installation.
 
@@ -160,17 +157,17 @@ Below is the complete list of available options that can be used to customize yo
 
 #### Core Configuration
 
-| Variable                       | Description                         | Default                                               |
-| ------------------------------ | ----------------------------------- | ----------------------------------------------------- |
-| `ENABLE_PHP_FPM`               | Enable PHP-FPM container mode       | `TRUE`                                                |
-| `PHPFPM_CONTAINER_MODE`        | Container mode for PHP-FPM          | `nginx-php-fpm`                                       |
-| `PHP_ENABLE_CREATE_SAMPLE_PHP` | Create a sample PHP page on startup | `TRUE`                                                |
-| `PHP_HIDE_X_POWERED_BY`        | Hide X-Powered-By header            | `TRUE`                                                |
-| `PHP_KITCHENSINK`              | Enable all PHP extensions           | `FALSE`                                               |
-| `PHP_MEMORY_LIMIT`             | PHP memory limit                    | `128M`                                                |
-| `PHP_POST_MAX_SIZE`            | Maximum POST size                   | `2G`                                                  |
-| `PHP_TIMEOUT`                  | Script execution timeout            | `180`                                                 |
-| `PHP_UPLOAD_MAX_SIZE`          | Maximum upload size                 | `2G`                                                  |
+| Variable                       | Description                         | Default                             |
+| ------------------------------ | ----------------------------------- | ----------------------------------- |
+| `ENABLE_PHP_FPM`               | Enable PHP-FPM container mode       | `TRUE`                              |
+| `PHPFPM_CONTAINER_MODE`        | Container mode for PHP-FPM          | `nginx-php-fpm`                     |
+| `PHP_ENABLE_CREATE_SAMPLE_PHP` | Create a sample PHP page on startup | `TRUE`                              |
+| `PHP_HIDE_X_POWERED_BY`        | Hide X-Powered-By header            | `TRUE`                              |
+| `PHP_KITCHENSINK`              | Enable all PHP extensions           | `FALSE`                             |
+| `PHP_MEMORY_LIMIT`             | PHP memory limit                    | `128M`                              |
+| `PHP_POST_MAX_SIZE`            | Maximum POST size                   | `2G`                                |
+| `PHP_TIMEOUT`                  | Script execution timeout            | `180`                               |
+| `PHP_UPLOAD_MAX_SIZE`          | Maximum upload size                 | `2G`                                |
 | `PHP_WEBROOT`                  | Webroot directory                   | `/www/html` (or `${NGINX_WEBROOT}`) |
 
 #### PHP Environment

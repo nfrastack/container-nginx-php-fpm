@@ -60,27 +60,7 @@ COPY CHANGELOG.md /usr/src/container/CHANGELOG.md
 COPY LICENSE /usr/src/container/LICENSE
 COPY README.md /usr/src/container/README.md
 
-RUN case "$(cat /etc/os-release |grep ^ID= | cut -d = -f2)" in \
-        "alpine" ) \
-            case "${PHP_BASE}" in \
-                8.[1-9] ) \
-                        export _php_folder="/etc/php${PHP_BASE/./}" ; \
-                        export _php_version="${PHP_BASE/./}" ; \
-                        export build_gnupg=true ; \
-                    ;; \
-                8.0 | *  ) \
-                        export _php_folder="/etc/php${PHP_BASE:0:1}" ; \
-                        export _php_version="${PHP_BASE:0:1}" ; \
-                        export build_gnupg=false ; \
-                    ;; \
-            esac \
-        ;; \
-        "debian" ) \
-                    export _php_version="${PHP_BASE}" ; \
-                    export _php_folder="/etc/php/${PHP_BASE}" ; \
-        ;; \
-    esac ; \
-    \
+RUN echo "" && \
     export PHP_BUILD_DEPS_ALPINE="  \
                                     build-base \
                                     php${_php_version}-dev \
@@ -171,7 +151,23 @@ RUN case "$(cat /etc/os-release |grep ^ID= | cut -d = -f2)" in \
     source /container/base/functions/container/build && \
     container_build_log image && \
     case "$(container_info distro)" in \
-        debian ) \
+        "alpine" ) \
+            case "${PHP_BASE}" in \
+                8.[1-9] ) \
+                        export _php_folder="/etc/php${PHP_BASE/./}" ; \
+                        export _php_version="${PHP_BASE/./}" ; \
+                        export build_gnupg=true ; \
+                    ;; \
+                8.0 | *  ) \
+                        export _php_folder="/etc/php${PHP_BASE:0:1}" ; \
+                        export _php_version="${PHP_BASE:0:1}" ; \
+                        export build_gnupg=false ; \
+                    ;; \
+            esac \
+        ;; \
+        "debian" ) \
+            export _php_version="${PHP_BASE}" ; \
+            export _php_folder="/etc/php/${PHP_BASE}" ; \
             package repo key https://mariadb.org/mariadb_release_signing_key.asc mariadb.gpg ; \
             package repo add mariadb "https://mirror.its.dal.ca/mariadb/repo/$(curl -sSLk https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | grep "mariadb_server_version=mariadb-" | head -n 1 | cut -d = -f 2 | cut -d - -f 2)/debian $(cat /etc/os-release |grep "VERSION=" | awk 'NR>1{print $1}' RS='(' FS=')') main" mariadb.gpg ; \
             package repo key https://www.postgresql.org/media/keys/ACCC4CF8.asc postgresql.gpg ; \
@@ -190,12 +186,12 @@ RUN case "$(cat /etc/os-release |grep ^ID= | cut -d = -f2)" in \
                     && \
     \
     case "$(container_info distro)" in \
-        alpine ) \
+        "alpine" ) \
             package install $(apk search -q php${_php_version} | grep "^php${_php_version}" | sed -e "/-cgi/d" -e "/-apache2/d" -e "/-doc/d" -e "/-dbg/d") ; \
             #if [ -f "${_php_folder}"/conf.d/*magick*.ini ]; then mv "${_php_folder}"/conf.d/*magick*.ini /tmp; fi; \
             sed -i "s|;cgi.fix_pathinfo=1|cgi.fix_pathinfo=0|g" ${_php_folder}/php.ini ; \
         ;; \
-        debian ) \
+        "debian" ) \
             package install $(apt-cache search php${_php_version} | awk '{print $1}' | sed -e "/-cgi/d" -e "/-dbgsym/d" -e "/-dev/d" -e "/-gmagick/d"  -e "/libapache2-mod/d" -e "/-libvirt/d" -e "/-yac/d") ; \
             sed -i "s|;cgi.fix_pathinfo=1|cgi.fix_pathinfo=0|g" ${_php_folder}/cli/php.ini ; \
         ;; \

@@ -244,6 +244,9 @@ info() {
             "base" )
                 echo "${php_base}"
             ;;
+            "base_alt" )
+                echo "${php_base/./}"
+            ;;
             "help" )
                 echo "Commands: base | modules_path | prefix | version"
             ;;

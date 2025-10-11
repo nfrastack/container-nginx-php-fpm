@@ -237,7 +237,6 @@ enable_module () {
     fi
 }
 
-
 info() {
     if [ -n "${1}" ]; then
         case "${1,,}" in

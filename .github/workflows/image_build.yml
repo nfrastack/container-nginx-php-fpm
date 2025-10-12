@@ -22,7 +22,7 @@ jobs:
           - { php_version: "8.3", php_version_latest: "false", distro: "debian", distro_variant: "bookworm", latest: "false", distro_latest: "false", arch: "linux/amd64,linux/arm64" }
           - { php_version: "8.2", php_version_latest: "false", distro: "debian", distro_variant: "trixie", latest: "false", distro_latest: "true", arch: "linux/amd64,linux/arm64" }
           - { php_version: "8.2", php_version_latest: "false", distro: "debian", distro_variant: "bookworm", latest: "false", distro_latest: "false", arch: "linux/amd64,linux/arm64" }
-          image_variant:
+        image_variant:
           - core
           - faflopza
           - faflopzaze

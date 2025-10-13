@@ -5,8 +5,9 @@
 
 php_version=$(php -v 2>/dev/null | grep "^PHP " | head -n 1 | awk '{print $2}')
 php_base=${php_version:0:3}
+os=$(grep -o '^ID=.*' /etc/os-release | cut -d = -f2)
 
-case "$(container_info distro)" in
+case "${os}" in
     "alpine" )
         case "${php_version:0:3}" in
             8*)
@@ -30,7 +31,7 @@ disable_module() {
             "all" )
                 echo "**Disabling All Modules"
                 for module in "${modules_available}"/*.ini ; do
-                    case "$(container_info distro)" in
+                    case "${os}" in
                         "alpine" )
                             rm -f "${php_prefix}"/conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
                         ;;
@@ -45,7 +46,7 @@ disable_module() {
                 for module in $php_env_modules_enabled ; do
                     if [ -f "${modules_available}/${module}.ini" ]; then
                         echo "Disabling ${module}"
-                        case "$(container_info distro)" in
+                        case "${os}" in
                             "alpine" )
                                 rm -f ${php_prefix}/conf.d/$(cat ${modules_available}/${module}.ini | grep ";priority" | cut -d = -f 2)-${module}.ini
                             ;;
@@ -79,7 +80,7 @@ disable_module() {
 
                     if [[ "$MATCH" -lt 1 ]] ; then
                         echo "Disabling $(basename $module .ini)"
-                        case "$(container_info distro)" in
+                        case "${os}" in
                             "alpine" )
                                 rm -f "${php_prefix}"conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
                             ;;
@@ -91,7 +92,7 @@ disable_module() {
                 done
             ;;
             reset )
-                case "$(container_info distro)" in
+                case "${os}" in
                     "alpine" )
                         rm -rf ${php_prefix}conf.d/*
                     ;;
@@ -103,7 +104,7 @@ disable_module() {
             * )
                 if [ -f "${modules_available}/${1}.ini" ]; then
                     echo "Disabling ${1}"
-                        case "$(container_info distro)" in
+                        case "${os}" in
                             "alpine" )
                                 rm -f ${php_prefix}conf.d/$(cat ${modules_available}/${1}.ini | grep ";priority" | cut -d = -f 2)-$1.ini
                             ;;
@@ -129,7 +130,7 @@ enable_module () {
                     echo "** Enabling All Modules"
                     for module in "${modules_available}"/*.ini; do
                         echo "Enabling ${module}"
-                        case "$(container_info distro)" in
+                        case "${os}" in
                             "alpine" )
                                 ln -sf "${module}" "${php_prefix}"/conf.d/$(cat "${module}" | grep ";priority" | cut -d = -f 2)-$(basename "${module}")
                             ;;
@@ -144,7 +145,7 @@ enable_module () {
                     for module in ${php_env_modules_enabled} ; do
                         if [ -f "${modules_available}"/"${module}".ini ]; then
                             echo "Enabling '$(basename "${module}" .ini)' module"
-                            case "$(container_info distro)" in
+                            case "${os}" in
                                 "alpine" )
                                     ln -sf "${modules_available}/${module}.ini" ${php_prefix}/conf.d/$(cat ${modules_available}/${module}.ini | grep ";priority" | cut -d = -f 2)-${module}.ini
                                     if [ "${php_major_version}" != "8" ] ; then
@@ -176,7 +177,7 @@ enable_module () {
                     for module in "${modules_available}"/*.ini; do
                         if ! grep -w -i -q "$(basename ${module} .ini)" "${php_env_modules_enabled}"; then
                             echo "Enabling $(basename ${module} .ini)"
-                            case "$(container_info distro)" in
+                            case "${os}" in
                                 "alpine" )
                                     ln -sf "${module}" ${php_prefix}conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
                                 ;;
@@ -200,7 +201,7 @@ enable_module () {
 
                         if [[ "$MATCH" -lt 1 ]] ; then
                             echo "Enabling $(basename ${module} .ini)"
-                            case "$(container_info distro)" in
+                            case "${os}" in
                                 "alpine" )
                                     ln -sf "${module}" ${php_prefix}conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
                                 ;;
@@ -214,7 +215,7 @@ enable_module () {
                 * )
                     if [ -f "${modules_available}/$1.ini" ]; then
                         echo "Enabling $1"
-                        case "$(container_info distro)" in
+                        case "${os}" in
                                 "alpine" )
                                     ln -sf "${modules_available}/$1.ini" ${php_prefix}conf.d/$(cat ${modules_available}/${1}.ini | grep ";priority" | cut -d = -f 2)-$1.ini
                                 ;;
@@ -328,7 +329,7 @@ EOF
 }
 
 prepare() {
-    case "$(container_info distro)" in
+    case "${os}" in
         "alpine" )
             mkdir -p ${modules_available}
             for module in ${php_prefix}/conf.d/*.ini; do
@@ -351,6 +352,15 @@ prepare() {
 
 get_php_env_modules_enabled() {
     set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE | cut -d _ -f 4- | cut -d = -f 1 | tr A-Z a-z
+}
+
+silent() {
+    ## Quiet down output
+    if [ "${DEBUG_MODE}" = "true" ] || [ "${SHOW_OUTPUT,,}" = "true" ] || [ "${CONTAINER_LOG_LEVEL,,}" = "debug" ] ;  then
+        "$@"
+    else
+        "$@" > /dev/null 2>&1
+    fi
 }
 
 if [ "${PHP_MODULE_ENABLE_OPENSSL,,}" = "true" ] && [ ! -f "${modules_available}"/openssl.ini ]; then
@@ -388,3 +398,4 @@ else
     echo "PHP Module Tool"
     echo "Commands: enable | disable | list | info | help"
 fi
+

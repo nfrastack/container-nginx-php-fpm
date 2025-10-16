@@ -168,10 +168,8 @@ RUN echo "" && \
         "debian" ) \
             export _php_version="${PHP_BASE}" ; \
             export _php_folder="/etc/php/${PHP_BASE}" ; \
-            package repo key https://mariadb.org/mariadb_release_signing_key.asc mariadb.gpg ; \
-            package repo add mariadb "https://mirror.its.dal.ca/mariadb/repo/$(curl -sSLk https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | grep "mariadb_server_version=mariadb-" | head -n 1 | cut -d = -f 2 | cut -d - -f 2)/debian $(cat /etc/os-release |grep "VERSION=" | awk 'NR>1{print $1}' RS='(' FS=')') main" mariadb.gpg ; \
-            package repo key https://www.postgresql.org/media/keys/ACCC4CF8.asc postgresql.gpg ; \
-            package repo add postgres "https://apt.postgresql.org/pub/repos/apt $(awk -F'[()]' '/VERSION=/{print $2}' /etc/os-release | awk '{print $1}')-pgdg main" postgresql.gpg ; \
+            package repo add mariadb ; \
+            package repo add postgres ; \
             package repo key https://packages.sury.org/php/apt.gpg suryphp.gpg ; \
             package repo add suryphp "https://packages.sury.org/php/ $(cat /etc/os-release |grep "VERSION=" | awk 'NR>1{print $1}' RS='(' FS=')') main" suryphp.gpg ; \
         ;; \

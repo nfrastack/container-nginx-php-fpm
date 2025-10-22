@@ -548,16 +548,21 @@ phpfpm_configure_modules_opcache() {
                     /container/data/php-fpm/conf.available/opcache.ini
         fi
 
-        if var_true "${CONTAINER_ENABLE_MONITORING}" && [ "${CONTAINER_MONITORING_BACKEND,,}" = "zabbix" ]; then
-            source /container/defaults/*-monitoring
-            cat <<EOF > "${ZABBIX_CONFIG_PATH}"/"${ZABBIX_CONFIG_FILE}.d"/tiredofit-php_module_opcache.conf
-  # Zabbix PHP Opcache Configuration - Automatically Generated
-  # Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
-  # Autoregister=opcache
+        if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
+            source /container/base/defaults/*-monitoring
+            case "${CONTAINER_MONITORING_BACKEND,,}" in
+                "zabbix" )
+                    cat <<EOF | silent tee "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
+# Zabbix PHP Opcache Configuration - Automatically Generated
+# Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
+# Autoregister=opcache
 
-  UserParameter=php.opcache.get_status,sudo -Eu zabbix php /etc/zabbix/zabbix_agentd.conf.d/scripts/php/opcache-status.php
-  UserParameter=php.opcache.get_settings,sudo -Eu zabbix php /etc/zabbix/zabbix_agentd.conf.d/scripts/php/opcache-settings.php
+UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php/opcache-status.php
+UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php/opcache-settings.php
 EOF
+
+                ;;
+            esac
         fi
     fi
 }

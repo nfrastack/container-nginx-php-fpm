@@ -199,6 +199,7 @@ RUN echo "" && \
     if [ -f /usr/sbin/php-fpm"${PHP_BASE}" ] ; then ln -sf /usr/sbin/php-fpm"${PHP_BASE}" /usr/sbin/php-fpm ; fi ; \
     if [ -f /usr/bin/pecl"${_php_version}" ] ; then ln -sf /usr/bin/pecl"${_php_version}" /usr/sbin/pecl; fi ; \
     if [ -f /usr/bin/php"${_php_version}" ] ; then ln -sf /usr/bin/php"${_php_version}" /usr/sbin/php ; fi ; \
+    if [ -f /usr/bin/phpize"${_php_version}" ] ; then ln -sf /usr/bin/phpize"${_php_version}" /usr/sbin/phpize ; fi ; \
     curl -sSLk https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
     \
     rm -rf \

@@ -4,7 +4,7 @@ on:
   workflow_call
 
 jobs:
-  build_alpine:
+  build:
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:

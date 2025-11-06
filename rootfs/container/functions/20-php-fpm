@@ -104,22 +104,19 @@ phpfpm_configure_nginx() {
 
 phpfpm_configure_nginx_php() {
     local nginxphpconf_value
-    if [ -v NGINX_${site^^}_PHP_UPSTREAM ] ; then
+    if [ -v NGINX_${site^^}_PHP_UPSTREAM ]; then
         nginxphpconf_value="$(set -o posix ; set | grep "NGINX_${site^^}_PHP_UPSTREAM=" | cut -d = -f 2)"
     else
-        if [ -n "${PHPFPM_POOL_WWW_LISTEN_TYPE}" ]; then
-            nginxphpconf_value=www
-            ln -sf /etc/nginx/snippets/server.available/php-fpm/www.conf /etc/nginx/snippets/server.available/php-fpm.conf
-        else
-            nginxphpconf_value="$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | sed -e "/^DEFAULT/d" | uniq)"
-            ln -sf /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf /etc/nginx/snippets/server.available/php-fpm.conf
+        nginxphpconf_value=www
     fi
+    ln -sf /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf /etc/nginx/snippets/server.available/php-fpm.conf
 
     if [ -f "${site_path}" ] && [ -f /etc/nginx/snippets/server.available/php-fpm/"${nginxphpconf_value}".conf ]; then
         sed -i \
                 -e "s|include /etc/nginx/snippets/server.available/php-fpm.*;|include /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf;|g" \
-                "${site_path}"
-        fi
+            "${site_path}"
+        PHP_UPSTREAM=${nginxphpconf_value}
+        update_template "${site_path}" PHP_UPSTREAM
     fi
 }
 
@@ -165,14 +162,11 @@ EOF
         echo "    server ${_php_fpm_upstream_host_socket_prefix}${_php_fpm_upstream} $(set -o posix ; set | grep -oE "^PHPFPM_UPSTREAM_${1^^}_OPTIONS=" | cut -d = -f2-);" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
     done
     echo "}" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
-set +x
     sed -i \
             -e "/# Do not delete - Upstream Configuration/a\ \ \ \ include \/etc\/nginx\/snippets\/upstream.available\/upstream-phpfpm-${1,,}.conf;" \
             -e "/# Do not delete - Upstream Configuration/a\ \ \ \ ### PHP-FPM Multiple Handlers configuration" \
         /etc/nginx/nginx.conf
-        set +x
 }
-
 
 phpfpm_configure_pools() {
     local _phpfpm_pools
@@ -191,6 +185,7 @@ phpfpm_configure_pools() {
 
     if [ "$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | uniq | wc -l)" -eq 1 ] ; then
         export PHPFPM_POOL_WWW_LISTEN_TYPE="${PHPFPM_POOL_DEFAULT_LISTEN_TYPE}"
+        ## TODO - need to find a way to dynamically set this in nginx /sites.enabled or other file - NGINX_SITE_... PHPFPM_POOL_NGINX_SITE?
     fi
 
     for phpfpm_pool in $(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | sed "/^DEFAULT/d" ) ; do
@@ -398,7 +393,7 @@ phpfpm_configure_site_default() {
 
         ### Populate your custom directives here
         location ~ \.php(/|\$) {
-            include /etc/nginx/snippets/server.available/php-fpm.conf;
+            include /etc/nginx/snippets/server.available/php-fpm/${PHP_UPSTREAM}.conf;
             fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
             fastcgi_param PATH_INFO \$fastcgi_path_info;
             fastcgi_index index.php;

@@ -196,7 +196,10 @@ PHPFPM_POOL_API_GROUP=www-data
 
 Each pool will be configured in `/etc/php.../pools.d/<poolname>.conf` inside the container.
 
+If no pool is defined then a default `www` pool will be created with the following default settings
+
 Default pool settings:
+
 | Variable                                      | Description                        | Default                             |
 | --------------------------------------------- | ---------------------------------- | ----------------------------------- |
 | `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_GROUP`       | Default UNIX group for pool        | `${NGINX_GROUP}`                    |
@@ -337,11 +340,11 @@ For Xdebug 3 (php >= 7.2) you should set:
 
 ## Users and Groups
 
-| Type  | Name            | ID   |
-| ----- | --------------- | ---- |
-| User  | `php` | `9000` |
-| Group | `php` | `9000` |
-| Group | `www-data` | `82` |
+| Type  | Name       | ID     |
+| ----- | ---------- | ------ |
+| User  | `php`      | `9000` |
+| Group | `php`      | `9000` |
+| Group | `www-data` | `82`   |
 
 ### Networking
 

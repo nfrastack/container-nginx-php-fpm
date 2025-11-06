@@ -40,7 +40,7 @@ case "${PHPFPM_CONTAINER_MODE,,}" in
       ;;
 esac
 
-if [ ! -f "/container/state/restart" ] ; then
+if check_container_restarted; then
     #phpfpm_bootstrap_filesystem
     phpfpm_bootstrap
     phpfpm_configure_logging

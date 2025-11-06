@@ -116,7 +116,7 @@ Use this as a starting point for your site configurations:
 
       ### Populate your custom directives here
       location ~ \.php(/|\$) {
-          include /etc/nginx/snippets/php-fpm.conf;
+          include /etc/nginx/server.available/php-fpm/{{PHP_POOL}}.conf;
           fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
           fastcgi_param PATH_INFO \$fastcgi_path_info;
           fastcgi_index index.php;

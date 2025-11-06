@@ -367,7 +367,7 @@ phpfpm_create_default_page() {
         if [ ! -f "${NGINX_WEBROOT}"/index.php ] ; then
             print_notice "Creating sample index.php"
             mkdir -p "${NGINX_WEBROOT}"
-            cat <<EOF > "${NGINX_WEBROOT}"/index.php
+            cat <<EOF | silent tee "${NGINX_WEBROOT}"/index.php
     <html>
     <title>Default Page</title>
     <h2>Container is working</h2>
@@ -381,7 +381,7 @@ EOF
 
 phpfpm_configure_site_default() {
     if [ -z "${NGINX_SITE_ENABLED}" ] && [ ! -f "/etc/nginx/sites.available/default.conf" ] && [ -f "/container/init/init.d/20-php-fpm" ]; then
-        cat <<EOF > /etc/nginx/sites.available/default.conf
+        cat <<EOF | silent tee /etc/nginx/sites.available/default.conf
     server {
         ### Don't Touch This
         listen ${NGINX_LISTEN_PORT};
@@ -389,6 +389,8 @@ phpfpm_configure_site_default() {
 
         ### Populate your custom directives here
         index  index.php index.html index.htm;
+
+        include ${NGINX_HEADER_FILE};
 
         location / {
             try_files \$uri \$uri/ /index.php?\$args;
@@ -488,8 +490,8 @@ phpfpm_configure_authentication_llng() {
         headers=NGINX_AUTHENTICATION_LLNG_ATTRIBUTE${llngheader}
         IFS=',' read -r -a array <<<"${!headers}"
         print_notice "Updating Nginx to support receiving attribute from LLNG: '${array[0]}'"
-        echo "fastcgi_param ${array[0]} \$${array[1]};" >> /etc/nginx/snippets/authentication/llng-params
-        echo "auth_request_set \$${array[1]} \$${array[2]};" >> /etc/nginx/snippets/authentication/llng-auth_request
+        echo "fastcgi_param ${array[0]} \$${array[1]};" | silent tee -a /etc/nginx/snippets/authentication/llng-params
+        echo "auth_request_set \$${array[1]} \$${array[2]};" | silent tee -a /etc/nginx/snippets/authentication/llng-auth_request
     done
     cp -R /etc/nginx/snippets/server.available/php-fpm.conf /etc/nginx/snippets/server.available/monitoring-php-fpm.conf
     sed -i "s|include /etc/nginx/snippets/server.available/php-fpm.conf;|include /etc/nginx/snippets/server.available/metrics-php-fpm.conf;|g" /etc/nginx/snippets/server.available/metrics.conf
@@ -572,7 +574,7 @@ phpfpm_configure_modules_xdebug() {
         mkdir "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
         chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
         if [ "${PHP_BASE:0:1}" = "5" ] || [ "${PHP_BASE:0:3}" = "7.0" ] || [ "${PHP_BASE:0:3}" = "7.1" ] ; then
-            cat <<EOF >> "${php_prefix}"conf.available/xdebug.ini
+            cat <<EOF | silent tee -a "${php_prefix}"conf.available/xdebug.ini
 zend_extension=xdebug.so
 xdebug.default_enable = 1
 xdebug.profiler_enable= ${PHP_MODULE_XDEBUG_PROFILER_ENABLE}
@@ -586,7 +588,7 @@ xdebug.remote_host = ${PHP_MODULE_XDEBUG_REMOTE_HOST}
 xdebug.remote_port = ${PHP_MODULE_XDEBUG_REMOTE_PORT}
 EOF
     	else
-	    	cat <<EOF >> "${php_prefix}"conf.available/xdebug.ini
+	    	cat <<EOF | silent tee -a "${php_prefix}"conf.available/xdebug.ini
 zend_extension=xdebug.so
 xdebug.default_enable = 1
 xdebug.output_dir = ${PHP_MODULE_XDEBUG_OUTPUT_DIR}
@@ -612,13 +614,13 @@ phpfpm_configure_server_smtp() {
         case "$(container_info distro)" in
             "alpine" )
                   if var_true "${CONTAINER_ENABLE_MESSAGING}" || [ "${CONTAINER_MESSAGING_BACKEND}" = "msmtp" ] ; then
-                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' > "${php_prefix%/}"/conf.d/99-smtp.ini
+                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
                   fi
               ;;
             "debian" )
                 if var_true "${ENABLE_SMTP}" || var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
-                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' > "${php_root%/}"/cli/conf.d/99-smtp.ini
-                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' > "${php_prefix%/}"/conf.d/99-smtp.ini
+                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_root%/}"/cli/conf.d/99-smtp.ini
+                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
                 fi
             ;;
         esac
@@ -637,11 +639,11 @@ phpfpm_configure_server_timezone() {
                                                                                     /container/data/php-fpm/fpm/php.ini
     case "$(container_info distro)" in
         "alpine" )
-            echo "date.timezone=$(cat /etc/timezone)" > "${php_prefix%/}"/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_prefix%/}"/conf.d/99-timezone.ini
         ;;
         "debian" )
-            echo "date.timezone=$(cat /etc/timezone)" > "${php_root%/}"/cli/conf.d/99-timezone.ini
-            echo "date.timezone=$(cat /etc/timezone)" > "${php_prefix%/}"/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_root%/}"/cli/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_prefix%/}"/conf.d/99-timezone.ini
         ;;
     esac
 }

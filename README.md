@@ -171,6 +171,7 @@ Below is the complete list of available options that can be used to customize yo
 | `PHP_WEBROOT`                  | Webroot directory                   | `/www/html` (or `${NGINX_WEBROOT}`) |
 
 #### PHP Environment
+
 | Variable            | Description              | Default                                                        |
 | ------------------- | ------------------------ | -------------------------------------------------------------- |
 | `PHPFPM_ENV_TEMP`   | PHP-FPM temp directory   | `/tmp`                                                         |
@@ -179,6 +180,23 @@ Below is the complete list of available options that can be used to customize yo
 | `PHPFPM_ENV_PATH`   | PHP-FPM PATH environment | `/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin` |
 
 #### PHP Pools
+
+You can define multiple PHP-FPM pools using environment variables. The default pool uses variables prefixed with `PHPFPM_POOL_DEFAULT_`. To add additional pools, use the pattern:
+
+`PHPFPM_POOL_<POOLNAME>_<SETTING>`
+
+For example, to add a pool named `api`:
+
+```env
+PHPFPM_POOL_API_LISTEN_TYPE=tcp
+PHPFPM_POOL_API_LISTEN_TCP_PORT=9001
+PHPFPM_POOL_API_USER=www-data
+PHPFPM_POOL_API_GROUP=www-data
+```
+
+Each pool will be configured in `/etc/php.../pools.d/<poolname>.conf` inside the container.
+
+Default pool settings:
 | Variable                                      | Description                        | Default                             |
 | --------------------------------------------- | ---------------------------------- | ----------------------------------- |
 | `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_GROUP`       | Default UNIX group for pool        | `${NGINX_GROUP}`                    |
@@ -217,6 +235,7 @@ Below is the complete list of available options that can be used to customize yo
 | `PHPFPM_POOL_DEFAULT_UPLOAD_MAX_SIZE`         | Pool upload max size               | `${PHP_UPLOAD_MAX_SIZE}`            |
 
 #### Logging
+
 | Variable                | Description    | Default             |
 | ----------------------- | -------------- | ------------------- |
 | `PHPFPM_LOG_ERROR_FILE` | Error log file | `error.log`         |
@@ -225,6 +244,7 @@ Below is the complete list of available options that can be used to customize yo
 | `PHPFPM_LOG_LIMIT`      | Log limit      | `3072`              |
 
 ### Modules
+
 #### Enabling / Disabling Specific Modules
 
 Enable extensions by using the PHP extension name ie redis as `PHP_MODULE_ENABLE_REDIS=TRUE`. Core extensions are enabled by default are:
@@ -319,8 +339,9 @@ For Xdebug 3 (php >= 7.2) you should set:
 
 | Type  | Name            | ID   |
 | ----- | --------------- | ---- |
-| User  | `nginx-php-fpm` | 8080 |
-| Group | `nginx-php-fpm` | 8080 |
+| User  | `php` | `9000` |
+| Group | `php` | `9000` |
+| Group | `www-data` | `82` |
 
 ### Networking
 

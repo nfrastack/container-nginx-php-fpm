@@ -150,6 +150,8 @@ RUN echo "" && \
     \
     source /container/base/functions/container/build && \
     container_build_log image && \
+    create_user php 9000 www-data && \
+    add_user_group php www-data && \
     case "$(container_info distro)" in \
         "alpine" ) \
             case "${PHP_BASE}" in \

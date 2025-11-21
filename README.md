@@ -4,7 +4,7 @@
 
 This repository will build a [Nginx](https://www.nginx.org) w/[PHP-FPM](https://php.net) container image, suitable for serving PHP scripts, or utilizing as a base image for installing additional software.
 
-* Tracking PHP 5.3-8.3
+* Tracking PHP 5.3-8.4
 * Easily enable / disable extensions based on your use case
 * Automatic Log rotation
 * Composer Included

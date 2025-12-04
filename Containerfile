@@ -65,7 +65,7 @@ COPY README.md /usr/src/container/README.md
 RUN echo "" && \
     export PHP_BUILD_DEPS_ALPINE="  \
                                     build-base \
-                                    php${_php_version}-dev \
+                                    php${PHP_BASE/./}-dev \
                                  " \
                                  && \
     export PHP_BUILD_DEPS_DEBIAN="  \

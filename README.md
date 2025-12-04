@@ -4,7 +4,7 @@
 
 This repository will build a [Nginx](https://www.nginx.org) w/[PHP-FPM](https://php.net) container image, suitable for serving PHP scripts, or utilizing as a base image for installing additional software.
 
-* Tracking PHP 5.3-8.4
+* Tracking PHP 5.3-8.5
 * Easily enable / disable extensions based on your use case
 * Automatic Log rotation
 * Composer Included
@@ -69,9 +69,10 @@ Example:
 | PHP version | Alpine Base | Tag            | Debian Base | Tag                    |
 | ----------- | ----------- | -------------- | ----------- | ---------------------- |
 | latest      | edge        | `:alpine-edge` |             |                        |
-| 8.4.x       | 3.22        | `:8.4-alpine`  | Trixie      | `:8.4-debian`          |
+| 8.5.x       | 3.23        | `:8.5-alpine`  |             |                        |
+| 8.4.x       | 3.23        | `:8.4-alpine`  | Trixie      | `:8.4-debian`          |
 |             |             |                | Bookworm    | `:8.4-debian_bookworm` |
-| 8.3.x       | 3.22        | `:8.3-alpine`  | Bookworm    | `:8.3-debian_trixie`   |
+| 8.3.x       | 3.23        | `:8.3-alpine`  | Bookworm    | `:8.3-debian_trixie`   |
 |             |             |                | Trixie      | `:8.3-debian`          |
 | 8.2.x       | 3.22        | `:8.2-alpine`  | Trixie      | `:8.2-debian`          |
 |             |             |                | Bookworm    | `:8.2-debian_bookworm` |

@@ -42,6 +42,7 @@ esac
 
 if check_container_restarted; then
     #phpfpm_bootstrap_filesystem
+    if var_true "${CONTAINER_ENABLE_MONITORING}" ; then source /container/base/defaults/*-monitoring; fi
     phpfpm_bootstrap
     phpfpm_configure_logging
     phpfpm_configure_environment_variables

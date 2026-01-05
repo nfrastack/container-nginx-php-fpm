@@ -131,6 +131,61 @@ proxy_http_version 1.1;
 proxy_set_header Connection "";
 EOF
 
+    if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
+        sed -i \
+                    -e '${/^}$/d;}' \
+                /etc/nginx/snippets/server.available/metrics.conf
+
+        if [ "${1,,}" != "www" ]; then
+            local _poolsuffix="_${1,,}"
+        else
+            local _poolsuffix="\$"
+        fi
+
+        cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
+    location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
+        include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+        fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
+        include fastcgi_params;
+    }
+EOF
+
+    if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
+        case "${CONTAINER_MONITORING_BACKEND,,}" in
+            "zabbix" )
+                if [ !  -f "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf ]; then
+                    cat <<EOF | silent tee "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
+# Zabbix PHP Opcache Configuration - Automatically Generated
+# Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
+# Autoregister=opcache
+
+EOF
+                fi
+
+                cat <<EOF | silent tee -a "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
+                    UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-status.php
+                    UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-settings.php
+EOF
+    location ~ ^/${1,,}/\.php(/|\$) {
+        root /etc/zabbix/zabbix_agentd.conf.d/scripts/php-${1,,};
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+        fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
+        include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+    }
+EOF
+
+
+        echo "}" | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
+    fi
+
     local _phpfpm_host
 
     if var_true "${NGINX_ENABLE_UPSTREAM_KEEPALIVE}" ; then
@@ -488,8 +543,6 @@ phpfpm_configure_authentication_llng() {
         echo "fastcgi_param ${array[0]} \$${array[1]};" | silent tee -a /etc/nginx/snippets/authentication/llng-params
         echo "auth_request_set \$${array[1]} \$${array[2]};" | silent tee -a /etc/nginx/snippets/authentication/llng-auth_request
     done
-    cp -R /etc/nginx/snippets/server.available/php-fpm.conf /etc/nginx/snippets/server.available/monitoring-php-fpm.conf
-    sed -i "s|include /etc/nginx/snippets/server.available/php-fpm.conf;|include /etc/nginx/snippets/server.available/metrics-php-fpm.conf;|g" /etc/nginx/snippets/server.available/metrics.conf
     if ! grep -q "include /etc/nginx/snippets/authentication/llng-includes;" /etc/nginx/snippets/server.available/php-fpm.conf ; then
         echo "include /etc/nginx/snippets/authentication/llng-includes;" >> /etc/nginx/snippets/server.available/php-fpm.conf
     fi
@@ -547,18 +600,15 @@ phpfpm_configure_modules_opcache() {
 
         if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
             source /container/base/defaults/*-monitoring
-            case "${CONTAINER_MONITORING_BACKEND,,}" in
-                "zabbix" )
-                    cat <<EOF | silent tee "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
-# Zabbix PHP Opcache Configuration - Automatically Generated
-# Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
-# Autoregister=opcache
 
-UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php/opcache-status.php
-UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php/opcache-settings.php
-EOF
+            sed -i \
+                    -e "s|include /etc/nginx/snippets/server.available/php-fpm.conf;|include /etc/nginx/snippets/server.available/metrics-php-fpm.conf;|g" \
+            /etc/nginx/snippets/server.available/metrics.conf
+
+
 
                 ;;
+            #cp -R /etc/nginx/snippets/server.available/php-fpm.conf /etc/nginx/snippets/server.available/monitoring-php-fpm.conf
             esac
         fi
     fi
@@ -644,7 +694,7 @@ phpfpm_configure_server_timezone() {
 }
 
 phpfpm_configure_server_socket() {
-:
+    :
 }
 
 phpfpm_configure_nginx_hide_header() {

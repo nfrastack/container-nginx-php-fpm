@@ -133,7 +133,7 @@ EOF
 
     if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
         sed -i \
-                    -e '${/^}$/d;}' \
+                    -e '${/^    }$/d;}' \
                 /etc/nginx/snippets/server.available/metrics.conf
 
         if [ "${1,,}" != "www" ]; then
@@ -143,14 +143,15 @@ EOF
         fi
 
         cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
-    location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
-        include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
-        access_log off;
-        allow 127.0.0.1;
-        deny all;
-        fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
-        include fastcgi_params;
-    }
+
+        location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
+            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+            fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
+            include fastcgi_params;
+        }
 EOF
 
         if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
@@ -171,25 +172,26 @@ UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%
 EOF
 
                     cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
-    location ~ ^/${1,,}/\.php(/|\$) {
-        root ${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,};
-        access_log off;
-        allow 127.0.0.1;
-        deny all;
-        fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
-        fastcgi_param PATH_INFO \$fastcgi_path_info;
-        include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-    }
+
+        location ~ ^/${1,,}/\.php(/|\$) {
+            root ${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,};
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+            fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
+            fastcgi_param PATH_INFO \$fastcgi_path_info;
+            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        }
 EOF
                 ;;
             esac
 
-            ln -sf ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}
+            ln -sf "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}".d/scripts/php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}
         fi
 
-        echo "}" | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
+        echo "    }" | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
     fi
 
     local _phpfpm_host

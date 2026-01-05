@@ -145,10 +145,10 @@ EOF
         cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
 
         location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
-            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
             access_log off;
             allow 127.0.0.1;
             deny all;
+            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf;
             fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
             include fastcgi_params;
         }
@@ -180,7 +180,7 @@ EOF
             deny all;
             fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
             fastcgi_param PATH_INFO \$fastcgi_path_info;
-            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
+            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf;
             include fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         }

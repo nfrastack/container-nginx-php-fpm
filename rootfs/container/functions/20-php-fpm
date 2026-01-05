@@ -509,7 +509,7 @@ phpfpm_post_init() {
         silent php-ext enable all
     fi
 
-    chmod -R 0755 "${php_prefix}"
+    chmod -R 0750 "${php_prefix}"
     chown -R root:"${PHPFPM_GROUP}" "${php_prefix}"
 }
 

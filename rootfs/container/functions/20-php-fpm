@@ -153,24 +153,26 @@ EOF
     }
 EOF
 
-    if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
-        case "${CONTAINER_MONITORING_BACKEND,,}" in
-            "zabbix" )
-                if [ !  -f "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf ]; then
-                    cat <<EOF | silent tee "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
+        if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
+            case "${CONTAINER_MONITORING_BACKEND,,}" in
+                "zabbix" )
+                    if [ !  -f "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf ]; then
+                        cat <<EOF | silent tee "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
 # Zabbix PHP Opcache Configuration - Automatically Generated
 # Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
 # Autoregister=opcache
 
 EOF
-                fi
+                    fi
 
-                cat <<EOF | silent tee -a "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
-                    UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-status.php
-                    UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-settings.php
+                    cat <<EOF | silent tee -a "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
+UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-status.php
+UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-settings.php
 EOF
+
+                    cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
     location ~ ^/${1,,}/\.php(/|\$) {
-        root /etc/zabbix/zabbix_agentd.conf.d/scripts/php-${1,,};
+        root ${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,};
         access_log off;
         allow 127.0.0.1;
         deny all;
@@ -181,7 +183,11 @@ EOF
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
     }
 EOF
+                ;;
+            esac
 
+            ln -sf ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}
+        fi
 
         echo "}" | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
     fi
@@ -597,20 +603,6 @@ phpfpm_configure_modules_opcache() {
                         -e "s#opcache.jit=.*#opcache.jit=${PHP_MODULE_OPCACHE_JIT_MODE}#g" \
                     /container/data/php-fpm/conf.available/opcache.ini
         fi
-
-        if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
-            source /container/base/defaults/*-monitoring
-
-            sed -i \
-                    -e "s|include /etc/nginx/snippets/server.available/php-fpm.conf;|include /etc/nginx/snippets/server.available/metrics-php-fpm.conf;|g" \
-            /etc/nginx/snippets/server.available/metrics.conf
-
-
-
-                ;;
-            #cp -R /etc/nginx/snippets/server.available/php-fpm.conf /etc/nginx/snippets/server.available/monitoring-php-fpm.conf
-            esac
-        fi
     fi
 }
 
@@ -659,13 +651,13 @@ phpfpm_configure_server_smtp() {
         case "$(container_info distro)" in
             "alpine" )
                   if var_true "${CONTAINER_ENABLE_MESSAGING}" || [ "${CONTAINER_MESSAGING_BACKEND}" = "msmtp" ] ; then
-                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
+                      echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
                   fi
               ;;
             "debian" )
                 if var_true "${ENABLE_SMTP}" || var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
-                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_root%/}"/cli/conf.d/99-smtp.ini
-                  echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
+                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_root%/}"/cli/conf.d/99-smtp.ini
+                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
                 fi
             ;;
         esac

@@ -174,7 +174,7 @@ EOF
                     cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
 
         location ~ ^/${1,,}/\.php(/|\$) {
-            root ${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,};
+            root ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,};
             access_log off;
             allow 127.0.0.1;
             deny all;

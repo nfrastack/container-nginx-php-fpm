@@ -544,26 +544,8 @@ phpfpm_configure_server() {
 
 phpfpm_configure_authentication_llng() {
     print_notice "Adding LLNG Authentication parameters to nginx configuration"
-    header_num=$(printenv | sort | grep -c '^NGINX_AUTHENTICATION_LLNG_ATTRIBUTE.*')
-    for ((llngheader = 1; llngheader <= header_num; llngheader++)); do
-        headers=NGINX_AUTHENTICATION_LLNG_ATTRIBUTE${llngheader}
-        IFS=',' read -r -a array <<<"${!headers}"
-        print_notice "Updating Nginx to support receiving attribute from LLNG: '${array[0]}'"
-        echo "fastcgi_param ${array[0]} \$${array[1]};" | silent tee -a /etc/nginx/snippets/authentication/llng-params
-        echo "auth_request_set \$${array[1]} \$${array[2]};" | silent tee -a /etc/nginx/snippets/authentication/llng-auth_request
-    done
     if ! grep -q "include /etc/nginx/snippets/authentication/llng-includes;" /etc/nginx/snippets/server.available/php-fpm.conf ; then
-        echo "include /etc/nginx/snippets/authentication/llng-includes;" >> /etc/nginx/snippets/server.available/php-fpm.conf
-    fi
-
-    if [ "${NGINX_SITE_ENABLED}" = "default" ] ; then
-        sed -i '/server {/a\ \ \ \ \  include /etc/nginx/snippets/authentication/llng_location_block;' /etc/nginx/sites.available/default.conf
-        sed -i '/server {/a\ \ \ \ \  ### LLNG Authentication handler' /etc/nginx/sites.available/default.conf
-        sed -i \
-                "/location \/ {/a\
- \            ### LLNG Authentication handler \n\
-            include /etc/nginx/snippets/authentication/llng-auth_request;" \
-                /etc/nginx/sites.available/default.conf
+        echo "include /etc/nginx/snippets/authentication/llng-includes;" | silent tee -a /etc/nginx/snippets/server.available/php-fpm.conf
     fi
 }
 

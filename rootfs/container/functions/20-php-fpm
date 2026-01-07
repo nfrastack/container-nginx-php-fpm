@@ -37,8 +37,9 @@ phpfpm_configure_environment_variables() {
 }
 
 phpfpm_configure_logging() {
-    mkdir -p "${php_prefix%/}"/php-fpm.d/
-    mkdir -p "${PHPFPM_LOG_ERROR_PATH}"
+    mkdir -p \
+                "${php_prefix%/}"/php-fpm.d/ \
+                "${PHPFPM_LOG_ERROR_PATH}"
     touch "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}"
     chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHPFPM_LOG_ERROR_PATH%/}"
     create_logrotate php-fpm-error "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}" php-fpm-error "${PHPFPM_USER}" "${PHPFPM_GROUP}"
@@ -322,7 +323,7 @@ phpfpm_configure_pool_log() {
         if [ "${_pool_log_access_file}" = "default-access.log" ] ; then _pool_log_access_file="${1,,}-access.log" ; fi
         touch "${_pool_log_path%/}"/"${_pool_log_access_file}"
         chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${_pool_log_path%/}"
-        create_logrotate phpfpm-${1,,}-access "$_pool_log_path%/}"/"${_pool_log_access_file}" php-fpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
+        create_logrotate phpfpm-${1,,}-access "${_pool_log_path%/}"/"${_pool_log_access_file}" php-fpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
 
         if [ "${_pool_log_access_format,,}" = "standard" ] ; then
             _pool_log_access_format=default
@@ -681,8 +682,7 @@ phpfpm_configure_server_timezone() {
             echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_prefix%/}"/conf.d/99-timezone.ini
         ;;
         "debian" )
-            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_root%/}"/cli/conf.d/99-timezone.ini
-            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_prefix%/}"/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_root%/}"/cli/conf.d/99-timezone.ini  "${php_prefix%/}"/conf.d/99-timezone.ini
         ;;
     esac
 }
@@ -696,3 +696,4 @@ phpfpm_configure_nginx_hide_header() {
         sed -i "/fastcgi_buffer_size/a \    fastcgi_hide_header X-Powered-By;" /etc/nginx/nginx.conf
     fi
 }
+

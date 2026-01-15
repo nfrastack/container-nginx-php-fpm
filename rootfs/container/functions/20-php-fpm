@@ -215,21 +215,24 @@ EOF
     fi
 
     mkdir -p /etc/nginx/snippets/upstream.available
-    echo "upstream phpfpm-${1,,}-upstream {" | silent tee /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
-    echo "    ${upstream_keepalive}" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
+    _upstream_conf="/etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf"
+    echo "upstream phpfpm-${1,,}-upstream {" | silent tee "${_upstream_conf}"
+    echo "    ${upstream_keepalive}" | silent tee -a "${_upstream_conf}"
 
     for _php_fpm_upstream in $(echo "${_phpfpm_host}" | tr "," "\n"); do
         if [[ $_{_php_fpm_upstream} != *":"* ]];then
             _php_fpm_upstream_host_socket_prefix="unix://"
         fi
 
-        echo "    server ${_php_fpm_upstream_host_socket_prefix}${_php_fpm_upstream} $(set -o posix ; set | grep -oE "^PHPFPM_UPSTREAM_${1^^}_OPTIONS=" | cut -d = -f2-);" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
+        echo "    server ${_php_fpm_upstream_host_socket_prefix}${_php_fpm_upstream} $(set -o posix ; set | grep -oE "^PHPFPM_UPSTREAM_${1^^}_OPTIONS=" | cut -d = -f2-);" | silent tee -a "${_upstream_conf}"
     done
-    echo "}" | silent tee -a /etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf
-    sed -i \
-            -e "/# Do not delete - Upstream Configuration/a\ \ \ \ include \/etc\/nginx\/snippets\/upstream.available\/upstream-phpfpm-${1,,}.conf;" \
-            -e "/# Do not delete - Upstream Configuration/a\ \ \ \ ### PHP-FPM Multiple Handlers configuration" \
-        /etc/nginx/nginx.conf
+    echo "}" | silent tee -a "${_upstream_conf}"
+        if ! grep -qF "${_upstream_conf}" /etc/nginx/nginx.conf ; then
+            sed -i \
+                -e "/# Do not delete - Upstream Configuration/a\\ \ \ \ \ ### PHP-FPM Multiple Handlers configuration" \
+                -e "/# Do not delete - Upstream Configuration/a\\ \ \ \ \ include ${_upstream_conf};" \
+                /etc/nginx/nginx.conf
+        fi
 }
 
 phpfpm_configure_pools() {

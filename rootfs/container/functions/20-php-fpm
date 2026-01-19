@@ -328,7 +328,7 @@ phpfpm_configure_pool_log() {
         if [ "${_pool_log_access_file}" = "default-access.log" ] ; then _pool_log_access_file="${1,,}-access.log" ; fi
         touch "${_pool_log_path%/}"/"${_pool_log_access_file}"
         chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${_pool_log_path%/}"
-        create_logrotate phpfpm-${1,,}-access "${_pool_log_path}"/"${_pool_log_access_file}" phpfpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
+        create_logrotate phpfpm-${1,,}-access "${_pool_log_path%/}"/"${_pool_log_access_file}" phpfpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
 
         if [ "${_pool_log_access_format,,}" = "standard" ] ; then
             _pool_log_access_format=default

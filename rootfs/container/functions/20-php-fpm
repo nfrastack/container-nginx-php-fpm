@@ -257,7 +257,7 @@ phpfpm_configure_pools() {
         ## TODO - need to find a way to dynamically set this in nginx /sites.enabled or other file - NGINX_SITE_... PHPFPM_POOL_NGINX_SITE?
     fi
 
-    for phpfpm_pool in $(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | sed "/^DEFAULT/d" ) ; do
+    for phpfpm_pool in $(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n -e "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" -e "/^DEFAULT/d" ) ; do
         _php_fpm_pool_vars="$(mktemp)"
         set -o posix ; set | grep -E "^PHPFPM_POOL_${phpfpm_pool}_|^PHPFPM_POOL_DEFAULT_" | tr " " "\n" > "${_php_fpm_pool_vars}"
         _phpfpm_pool_prefix="${php_prefix%/}/pools.d/${phpfpm_pool,,}"

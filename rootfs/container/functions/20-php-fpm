@@ -2,10 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-phpfpm_bootstrap_filesystem() {
-    :
-}
-
 phpfpm_bootstrap() {
     case "$(container_info distro)" in
         alpine )
@@ -25,6 +21,10 @@ phpfpm_bootstrap() {
     esac
 }
 
+phpfpm_bootstrap_filesystem() {
+    :
+}
+
 phpfpm_configure_environment_variables() {
     mkdir -p "${php_prefix%/}"/environment/
     for phpfpm_env_pair in $(set -o posix ; set | sort | grep "^PHPFPM_ENV_.*=" | sed "s|^PHPFPM_ENV_||g") ; do
@@ -42,7 +42,7 @@ phpfpm_configure_logging() {
                 "${PHPFPM_LOG_ERROR_PATH}"
     touch "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}"
     chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHPFPM_LOG_ERROR_PATH%/}"
-    create_logrotate php-fpm-error "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}" php-fpm-error "${PHPFPM_USER}" "${PHPFPM_GROUP}"
+    create_logrotate phpfpm-error "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}" phpfpm-error "${PHPFPM_USER}" "${PHPFPM_GROUP}"
 
     configure_server_logging="$(cat <<EOF
                                     error_log = ${PHPFPM_LOG_ERROR_PATH%/}/${PHPFPM_LOG_ERROR_FILE}
@@ -55,7 +55,9 @@ EOF
 
     case "${PHP_BASE}" in
         "5.6" | 7[0-2] )
-            sed -i "/^log_limit =/d" "${php_prefix%/}"/php-fpm.d/logging.conf
+            sed -i \
+                        -e "/^log_limit =/d" \
+                    "${php_prefix%/}"/php-fpm.d/logging.conf
         ;;
     esac
 }
@@ -114,8 +116,8 @@ phpfpm_configure_nginx_php() {
 
     if [ -f "${site_path}" ] && [ -f /etc/nginx/snippets/server.available/php-fpm/"${nginxphpconf_value}".conf ]; then
         sed -i \
-                -e "s|include /etc/nginx/snippets/server.available/php-fpm.*;|include /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf;|g" \
-            "${site_path}"
+                    -e "s|include /etc/nginx/snippets/server.available/php-fpm.*;|include /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf;|g" \
+                "${site_path}"
         PHP_UPSTREAM=${nginxphpconf_value}
         update_template "${site_path}" PHP_UPSTREAM
     fi
@@ -326,7 +328,7 @@ phpfpm_configure_pool_log() {
         if [ "${_pool_log_access_file}" = "default-access.log" ] ; then _pool_log_access_file="${1,,}-access.log" ; fi
         touch "${_pool_log_path%/}"/"${_pool_log_access_file}"
         chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${_pool_log_path%/}"
-        create_logrotate phpfpm-${1,,}-access "${_pool_log_path%/}"/"${_pool_log_access_file}" php-fpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
+        create_logrotate phpfpm-${1,,}-access "${_pool_log_path}"/"${_pool_log_access_file}" phpfpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
 
         if [ "${_pool_log_access_format,,}" = "standard" ] ; then
             _pool_log_access_format=default
@@ -433,7 +435,7 @@ phpfpm_create_default_page() {
     <html>
     <title>Default Page</title>
     <h2>Container is working</h2>
-    Congratulations! Your ${IMAGE_NAME} ${os} PHP-FPM image is working. You are seeing this because you don't have an index.php file in your ${NGINX_WEBROOT} directory.<br />
+    Congratulations! Your ${IMAGE_NAME} ${os} PHP-FPM image is working. You are seeing this because you don't have an index.php file in your ${PHP_WEBROOT} directory.<br />
     <?php phpinfo();?>
     </html>
 EOF
@@ -507,7 +509,7 @@ phpfpm_post_init() {
         php_enable_create_sample_php=${PHP_ENABLE_CREATE_SAMPLE_PHP}
         unset PHP_ENABLE_CREATE_SAMPLE_PHP
         silent php-ext enable core
-        print_debug "PHP-FPM Preparing to start with the following modules enabled: $(set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE |sed -e 's/PHP_MODULE_ENABLE_//g' | sed -e 's/=TRUE//g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr '[A-Z]' '[a-z]')"
+        print_debug "PHP-FPM Preparing to start with the following modules enabled: $(set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE |sed -e 's|PHP_MODULE_ENABLE_||g' -e 's|=TRUE||g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr '[A-Z]' '[a-z]')"
     else
         print_warn "Enabling Kitchen Sink mode and allowing all modules to be active"
         silent php-ext enable all
@@ -560,7 +562,7 @@ phpfpm_configure_modules_apc() {
     sed -i \
             -e "s#apc.shm_size=.*#apc.shm_size=${PHP_MODULE_APC_SHM_SIZE}#g" \
             -e "s#apc.ttl=.*#apc.ttl=${PHP_MODULE_APC_TTL}#g" \
-        /container/data/php-fpm//conf.available/apcu.ini
+        /container/data/php-fpm/conf.available/apcu.ini
 }
 
 phpfpm_configure_modules_opcache() {
@@ -581,7 +583,7 @@ phpfpm_configure_modules_opcache() {
                 -e "s#opcache.revalidate_freq=.*#opcache.revalidate_freq=${PHP_MODULE_OPCACHE_REVALIDATE_FREQ}#g" \
                 -e "s#opcache.save_comments=.*#opcache.save_comments=${PHP_MODULE_OPCACHE_SAVE_COMMENTS}#g" \
                 -e "s#opcache.validate_timestamps=.*#opcache.validate_timestamps=${PHP_MODULE_OPCACHE_VALIDATE_TIMESTAMPS}#g" \
-           /container/data/php-fpm/conf.available/opcache.ini
+            /container/data/php-fpm/conf.available/opcache.ini
 
         if [ "${PHP_BASE:0:1}" = "7" ] ; then
             sed -i "/opcache.jit/d" /container/data/php-fpm/conf.available/opcache.ini
@@ -626,9 +628,9 @@ EOF
     	fi
         PHP_LOG_LEVEL=debug
         print_notice "DEBUGGING MODE ACTIVATED: Please use your IDE to connect to: ${PHP_MODULE_XDEBUG_REMOTE_HOST}:${PHP_MODULE_XDEBUG_REMOTE_PORT}"
-        if [ "${PHP_MODULE_XDEBUG_PROFILER_ENABLE}" = "1" ] || [ "${PHP_MODULE_XDEBUG_MODE}" = "trace" ]; then
+        if [ "${PHP_MODULE_XDEBUG_PROFILER_ENABLE}" = "1" ] || [ "${PHP_MODULE_XDEBUG_MODE,,}" = "trace" ]; then
             print_notice "PROFILING MODE ACTIVATED: Please find the profiler logs at: ${PHP_MODULE_XDEBUG_PROFILER_PATH}"
-            mkdir "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
+            mkdir -p "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
             chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
         fi
     fi
@@ -644,8 +646,7 @@ phpfpm_configure_server_smtp() {
               ;;
             "debian" )
                 if var_true "${ENABLE_SMTP}" || var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
-                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_root%/}"/cli/conf.d/99-smtp.ini
-                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
+                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_root%/}"/cli/conf.d/99-smtp.ini "${php_prefix%/}"/conf.d/99-smtp.ini
                 fi
             ;;
         esac
@@ -660,8 +661,9 @@ phpfpm_configure_server_smtp() {
 phpfpm_configure_server_timezone() {
      sed -i \
                 -e "s#date.timezone = .*#date.timezone = $(cat /etc/timezone)#g" \
-                                                                                    /container/data/php-fpm/cli/php.ini \
-                                                                                    /container/data/php-fpm/fpm/php.ini
+            /container/data/php-fpm/cli/php.ini \
+            /container/data/php-fpm/fpm/php.ini
+
     case "$(container_info distro)" in
         "alpine" )
             echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_prefix%/}"/conf.d/99-timezone.ini
@@ -678,7 +680,9 @@ phpfpm_configure_server_socket() {
 
 phpfpm_configure_nginx_hide_header() {
     if var_true "${PHP_HIDE_X_POWERED_BY}" ; then
-        sed -i "/fastcgi_buffer_size/a \    fastcgi_hide_header X-Powered-By;" /etc/nginx/nginx.conf
+        sed -i \
+                    -e "/fastcgi_buffer_size/a \    fastcgi_hide_header X-Powered-By;" \
+                /etc/nginx/nginx.conf
     fi
 }
 

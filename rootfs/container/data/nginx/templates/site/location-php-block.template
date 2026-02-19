@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+location ~ [^/]\.php(/|$) {
+    try_files $fastcgi_script_name =404; # Fail if script missing
+    {{php_upstream}};
+    fastcgi_split_path_info ^(.+\.php)(/.+)$;
+    fastcgi_index {{php_index_file}};
+    {{fastcgi_params}};
+}

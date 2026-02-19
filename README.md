@@ -11,6 +11,7 @@ This repository will build a [Nginx](https://www.nginx.org) w/[PHP-FPM](https://
 * XDebug capability
 * Caching via APC, opcache
 * Includes client libraries for [MariaDB](https://www.mariadb.org) and [Postgresql](https://www.postgresql.org)
+* Multiple pool support
 
 ## Maintainer
 
@@ -96,6 +97,9 @@ Images are built for `amd64` by default, with optional support for `arm64` and o
 The container starts up and reads from `/etc/nginx/nginx.conf` for some basic configuration and to listen on port 73 internally for Nginx Status responses. Configuration of websites are done in `/etc/services.available` with the filename pattern of `site.conf`. You must set an environment variable for `NGINX_SITE_ENABLED` if you have more than one configuration in there if you only want to enable one of the configurartions, otherwise it will enable all of them. Use `NGINX_SITE_ENABLED=null` to break a parent image declaration.
 
 Use this as a starting point for your site configurations:
+# WIP
+
+
 ````nginx
   server {
       ### Don't Touch This
@@ -116,8 +120,10 @@ Use this as a starting point for your site configurations:
       }
 
       ### Populate your custom directives here
-      location ~ \.php(/|\$) {
-          include /etc/nginx/server.available/php-fpm/{{PHP_POOL}}.conf;
+        location ~ \.php(/|\$) {
+          # Include the php-fpm pool include file. Replace <config> with your
+          # nginx config base name (see NGINX_CONFIG_PATH and NGINX_CONFIG_FILE).
+          include ${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/{{PHP_POOL}}.conf;
           fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
           fastcgi_param PATH_INFO \$fastcgi_path_info;
           fastcgi_index index.php;
@@ -158,18 +164,18 @@ Below is the complete list of available options that can be used to customize yo
 
 #### Core Configuration
 
-| Variable                       | Description                         | Default                             |
-| ------------------------------ | ----------------------------------- | ----------------------------------- |
-| `ENABLE_PHP_FPM`               | Enable PHP-FPM container mode       | `TRUE`                              |
-| `PHPFPM_CONTAINER_MODE`        | Container mode for PHP-FPM          | `nginx-php-fpm`                     |
-| `PHP_ENABLE_CREATE_SAMPLE_PHP` | Create a sample PHP page on startup | `TRUE`                              |
-| `PHP_HIDE_X_POWERED_BY`        | Hide X-Powered-By header            | `TRUE`                              |
-| `PHP_KITCHENSINK`              | Enable all PHP extensions           | `FALSE`                             |
-| `PHP_MEMORY_LIMIT`             | PHP memory limit                    | `128M`                              |
-| `PHP_POST_MAX_SIZE`            | Maximum POST size                   | `2G`                                |
-| `PHP_TIMEOUT`                  | Script execution timeout            | `180`                               |
-| `PHP_UPLOAD_MAX_SIZE`          | Maximum upload size                 | `2G`                                |
-| `PHP_WEBROOT`                  | Webroot directory                   | `/www/html` (or `${NGINX_WEBROOT}`) |
+| Variable                | Description                         | Default                             | Site |
+| ----------------------- | ----------------------------------- | ----------------------------------- | ---- |
+| `ENABLE_PHP_FPM`        | Enable PHP-FPM container mode       | `TRUE`                              |      |
+| `PHPFPM_CONTAINER_MODE` | Container mode for PHP-FPM          | `nginx-php-fpm`                     |      |
+| `PHP_CREATE_SAMPLE_PHP` | Create a sample PHP page on startup | `TRUE`                              |      |
+| `PHP_HIDE_X_POWERED_BY` | Hide X-Powered-By header            | `TRUE`                              |      |
+| `PHP_KITCHENSINK`       | Enable all PHP extensions           | `FALSE`                             |      |
+| `PHP_MEMORY_LIMIT`      | PHP memory limit                    | `128M`                              |      |
+| `PHP_POST_MAX_SIZE`     | Maximum POST size                   | `2G`                                |      |
+| `PHP_TIMEOUT`           | Script execution timeout            | `180`                               |      |
+| `PHP_UPLOAD_MAX_SIZE`   | Maximum upload size                 | `2G`                                |      |
+| `PHP_WEBROOT`           | Webroot directory                   | `/www/html` (or `${NGINX_WEBROOT}`) |      |
 
 #### PHP Environment
 

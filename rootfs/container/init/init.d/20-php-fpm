@@ -1,5 +1,5 @@
 #!/command/with-contenv bash
-# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,10 +11,11 @@ SERVICE_NAME="php-fpm"
 if var_false "${ENABLE_PHPFPM}" ; then
     print_notice "Disabling PHP-FPM Functionality"
     service_stop 20-php-fpm
-    rm -rf /container/logrotate/php-fpm*
-    rm -rf /etc/logrotate.d/php-fpm*
-    rm -rf /etc/fluent-bit/conf.d/php*
-    rm -rf /etc/zabbix/*/php*.conf
+    rm -rf \
+            /container/logrotate/php-fpm* \
+            /etc/logrotate.d/php-fpm* \
+            /etc/fluent-bit/conf.d/php* \
+            /etc/zabbix/*/php*.conf
     liftoff
     exit 0
 fi
@@ -41,7 +42,6 @@ case "${PHPFPM_CONTAINER_MODE,,}" in
 esac
 
 if check_container_restarted; then
-    #phpfpm_bootstrap_filesystem
     if var_true "${CONTAINER_ENABLE_MONITORING}" ; then source /container/base/defaults/*-monitoring; fi
     phpfpm_bootstrap
     phpfpm_configure_logging
@@ -50,7 +50,6 @@ if check_container_restarted; then
     phpfpm_configure_pools
     phpfpm_configure_server
     if [[ "${PHPFPM_CONTAINER_MODE,,}" == *"nginx"* ]] ; then phpfpm_configure_nginx ; fi
-    if [[ "${PHPFPM_CONTAINER_MODE,,}" == *"php-fpm"* ]] ; then phpfpm_create_default_page ; fi
     phpfpm_post_init
 fi
 liftoff

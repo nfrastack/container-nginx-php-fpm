@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
 #
 # SPDX-License-Identifier: MIT
 
@@ -53,8 +53,6 @@ ENV \
     PHPFPM_USER="nginx" \
     PHPFPM_GROUP="www-data" \
     CONTAINER_ENABLE_MESSAGING=TRUE \
-    CONTAINER_ENABLE_SCHEDULING=TRUE \
-    NGINX_ENABLE_CREATE_SAMPLE_HTML=FALSE \
     IMAGE_NAME="nfrastack/nginx-php-fpm" \
     IMAGE_REPO_URL="https://github.com/nfrastack/container-nginx-php-fpm/"
 
@@ -63,6 +61,11 @@ COPY LICENSE /usr/src/container/LICENSE
 COPY README.md /usr/src/container/README.md
 
 RUN echo "" && \
+    export BUILD_ENV=" \
+                        10-nginx/NGINX_ENABLE_CREATE_SAMPLE_HTML=FALSE \
+                        10-nginx/NGINX_INDEX_FILE=index.php \
+                     " \
+                     && \
     export PHP_BUILD_DEPS_ALPINE="  \
                                     build-base \
                                     php${PHP_BASE/./}-dev \

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Nfrastack <code@nfrastack.com>
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
 #
 # SPDX-License-Identifier: MIT
 
@@ -70,171 +70,226 @@ phpfpm_configure_modules() {
 
 phpfpm_configure_nginx() {
     if var_true "${NGINX_ENABLE_APPLICATION_CONFIGURATION}"; then
-        if [ -n "${NGINX_WEBROOT_SUFFIX}" ]; then
-            _nginx_webroot_original="${NGINX_WEBROOT}"
-            NGINX_WEBROOT=${NGINX_WEBROOT}${NGINX_WEBROOT_SUFFIX}
+        if [ -z "${NGINX_SITE_ENABLED}" ] || [ "${NGINX_SITE_ENABLED,,}" = "null" ] ; then
+            NGINX_SITE_ENABLED=default
         fi
-        phpfpm_configure_site_default
-        if [ -n "${NGINX_WEBROOT_SUFFIX}" ]; then
-            NGINX_WEBROOT=${_nginx_webroot_original}
-        fi
-    fi
 
-    if [ -n "${NGINX_SITE_ENABLED}" ] ; then
-        if [ "${NGINX_SITE_ENABLED,,}" != "null" ] ; then
+        if [ -n "${NGINX_SITE_ENABLED}" ] && [ "${NGINX_SITE_ENABLED,,}" != "null" ] ; then
+            sites_to_enable=""
             for site_list in $(echo "${NGINX_SITE_ENABLED}" | tr "," "\n"); do
                 case "${site_list}" in
                     "all")
-                        site_filelist=$(find /etc/nginx/sites.available/*.conf /override/sites.available/*.conf -type f -not -name *.enc* -print -maxdepth 1 2>/dev/null)
+                        site_filelist=$(find "${NGINX_CONFIG_PATH%/}"/"${NGINX_CONFIG_FILE}".d/sites.available/*.conf /container/data/nginx/sites.available/*.conf /override/sites.available/*.conf -type f ! -name *.enc* -maxdepth 1 2>/dev/null || true)
+                        for site_path in ${site_filelist}; do
+                            sites_to_enable="${sites_to_enable} $(basename "${site_path%.*}")"
+                        done
                     ;;
-                    * )
-                        site_filelist=$(find /etc/nginx/sites.available/${site_list}.conf /override/sites.available/${site_list}.conf -type f -not -name *.enc* -print -maxdepth 1 2>/dev/null)
+                    *)
+                        sites_to_enable="${sites_to_enable} ${site_list}"
                     ;;
                 esac
-                for site_path in $(echo "${site_filelist}"); do
-                    site="$(basename "${site_path%.*}")"
-                    print_info "[configure_site] Configuring site '${site}'"
-                    call phpfpm_configure_nginx_php "${site_path}"
-                    call nginx_configure_site_authentication "${site_path}"
+            done
+
+            sites_to_enable=$(echo "${sites_to_enable}" | tr ' ' '\n' | sed '/^$/d' | awk '!seen[$0]++' | tr '\n' ' ')
+            for site in ${sites_to_enable}; do
+                print_info "[configure_site/${site}] Configuring PHP settings"
+                site_path=""
+                for enable_candidate in "${NGINX_CONFIG_PATH%/}/sites.enabled/${site}.conf"; do
+                    if [ -f "${enable_candidate}" ]; then
+                        site_path="${enable_candidate}"
+                        break
+                    fi
                 done
+                local allow_defaults_var_site="NGINX_SITE_${site^^}_ALLOW_DEFAULTS"
+                local allow_defaults="${!allow_defaults_var_site}"
+                if [ -z "${allow_defaults}" ]; then allow_defaults="${NGINX_ALLOW_DEFAULTS}"; fi
+                if [ -z "${allow_defaults}" ]; then allow_defaults=true; fi
+                call phpfpm_configure_nginx_php "${site}" "${site_path}" "${allow_defaults,,}"
             done
         fi
+    else
+        print_notice "[application_configuration] Disabled automated PHP site configuration routines"
     fi
 
     call phpfpm_configure_nginx_hide_header
-    if [ "${NGINX_AUTHENTICATION_TYPE,,}" = "llng" ] ; then  phpfpm_configure_authentication_llng ; fi
 }
 
 phpfpm_configure_nginx_php() {
-    local nginxphpconf_value
-    if [ -v NGINX_${site^^}_PHP_UPSTREAM ]; then
-        nginxphpconf_value="$(set -o posix ; set | grep "NGINX_${site^^}_PHP_UPSTREAM=" | cut -d = -f 2)"
-    else
-        nginxphpconf_value=www
-    fi
-    ln -sf /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf /etc/nginx/snippets/server.available/php-fpm.conf
+    if [ -n "${1}" ]; then
+        local _sitename="${1:-}"
+        local site_path="${2:-}"
+        local allow_defaults="${3:-true}"
 
-    if [ -f "${site_path}" ] && [ -f /etc/nginx/snippets/server.available/php-fpm/"${nginxphpconf_value}".conf ]; then
-        sed -i \
-                    -e "s|include /etc/nginx/snippets/server.available/php-fpm.*;|include /etc/nginx/snippets/server.available/php-fpm/${nginxphpconf_value}.conf;|g" \
-                "${site_path}"
-        PHP_UPSTREAM=${nginxphpconf_value}
-        update_template "${site_path}" PHP_UPSTREAM
+        local _nginxphpupvar="NGINX_SITE_${_sitename^^}_PHP_UPSTREAM"
+        local _nginxphpconf=""
+        if [ -n "${!_nginxphpupvar:-}" ]; then
+            _nginxphpconf="${!_nginxphpupvar}"
+        else
+            if [ "${allow_defaults,,}" = "true" ] && [ -n "${NGINX_PHP_UPSTREAM:-}" ]; then
+                _nginxphpconf="${NGINX_PHP_UPSTREAM}"
+            else
+                _nginxphpconf=www
+            fi
+        fi
+
+        create_folder "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm" "${NGINX_USER}:${NGINX_GROUP}" 755
+        ln -sf "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_nginxphpconf}.conf" "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/php-fpm.conf"
+
+        local php_index_file=""
+        local _site_index_var="NGINX_SITE_${_sitename^^}_INDEXFILE"
+        if [ -n "${!_site_index_var:-}" ]; then
+            php_index_file="${!_site_index_var}"
+        else
+            if [ "${allow_defaults,,}" = "true" ] && [ -n "${NGINX_INDEX_FILE}" ]; then
+                php_index_file="${NGINX_INDEX_FILE}"
+            else
+                php_index_file="index.php"
+            fi
+        fi
+        local nginx_index_file="${php_index_file}"
+        local php_upstream="include ${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_nginxphpconf}.conf"
+        if [ -n "${site_path}" ] && [ -f "${site_path}" ] && [ -f "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_nginxphpconf}.conf" ]; then
+            while IFS= read -r -d '' _file; do
+                if grep -q '{{[[:space:]]*php_[A-Za-z0-9_]*[[:space:]]*}}' "${_file}"; then
+                    placeholders=$(grep -oE '{{[[:space:]]*php_[A-Za-z0-9_]*[[:space:]]*}}' "${_file}" \
+                        | sed -e 's/^{{[[:space:]]*//' -e 's/[[:space:]]*}}$//' \
+                        | awk '{$1=$1;print}' \
+                        | sort -u \
+                        | tr '\n' ' ')
+
+                    if [ -n "${placeholders}" ]; then
+                        print_debug "[configure_site/${_sitename}] [configure_nginx_php] Updating template ${_file} with placeholders: ${placeholders}"
+                        set -- ${placeholders}
+                        update_template "${_file}" "$@"
+                        set --
+                    fi
+                fi
+            done < <( { [ -f "${site_path}" ] && printf '%s\0' "${site_path}"; find -L "$(dirname "${site_path}")" -type f -print0 2>/dev/null; } )
+        fi
     fi
 }
 
-
 phpfpm_configure_nginx_upstream() {
-    mkdir -p /etc/nginx/snippets/server.available/php-fpm
-    cat << EOF | silent tee /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf
-fastcgi_pass phpfpm-${1,,}-upstream;
-fastcgi_read_timeout ${_pool_max_execution_time};
-fastcgi_send_timeout ${_pool_max_execution_time};
-proxy_http_version 1.1;
-proxy_set_header Connection "";
+    if [ -n "${1}" ]; then
+        local _upstream="${1}"
+        local _upstream_file="${NGINX_CONFIG_PATH%/}"/"${NGINX_CONFIG_FILE}".d/php-fpm/${_upstream,,}.conf
+        create_folder "$(dirname "${_upstream_file}")" "${NGINX_USER}:${NGINX_GROUP}" 755
+        cat << EOF | silent tee "${_upstream_file}"
+fastcgi_pass            phpfpm-${_upstream,,}-upstream;
+fastcgi_read_timeout    ${_pool_max_execution_time};
+fastcgi_send_timeout    ${_pool_max_execution_time};
+proxy_http_version      1.1;
+proxy_set_header        Connection "";
 EOF
 
-    if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
-        sed -i \
-                    -e '${/^    }$/d;}' \
-                /etc/nginx/snippets/server.available/metrics.conf
+        if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
+            local metrics_conf="${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/http/metrics.conf"
+            sed -i \
+                        -e '${/^    }$/d;}' \
+                    "${metrics_conf}"
 
-        if [ "${1,,}" != "www" ]; then
-            local _poolsuffix="_${1,,}"
-        else
-            local _poolsuffix="\$"
-        fi
+            if [ "${_upstream,,}" != "www" ]; then
+                local _poolsuffix="_${_upstream,,}"
+            else
+                local _poolsuffix="\$"
+            fi
 
-        cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
+            cat <<EOF | silent tee -a "${metrics_conf}"
 
         location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
             access_log off;
             allow 127.0.0.1;
             deny all;
-            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf;
+            include ${_upstream_file};
             fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
             include fastcgi_params;
         }
 EOF
 
-        if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
-            case "${CONTAINER_MONITORING_BACKEND,,}" in
-                "zabbix" )
-                    if [ !  -f "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf ]; then
-                        cat <<EOF | silent tee "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
+            if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
+                case "${CONTAINER_MONITORING_BACKEND,,}" in
+                    "zabbix" )
+                        local zbx_opcache_module="${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/nfrastack-php_module_opcache.conf"
+                        local zbx_opcache_scripts="$(dirname "${zbx_opcache_module%/}")/scripts/php-${_upstream,,}/"
+                        if [ !  -f "${zbx_opcache_module}" ]; then
+                            cat <<EOF | silent tee "${zbx_opcache_module}"
 # Zabbix PHP Opcache Configuration - Automatically Generated
 # Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
 # Autoregister=opcache
 
 EOF
-                    fi
+                        fi
 
-                    cat <<EOF | silent tee -a "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}.d"/nfrastack-php_module_opcache.conf
-UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-status.php
-UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}/opcache-settings.php
+                        cat <<EOF | silent tee -a "${zbx_opcache_module}"
+UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${zbx_opcache_scripts%/}/opcache-status.php
+UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${zbx_opcache_scripts%/}/opcache-settings.php
 EOF
 
-                    cat <<EOF | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
+                        cat <<EOF | silent tee -a "${metrics_conf}"
 
-        location ~ ^/${1,,}/\.php(/|\$) {
-            root ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,};
+        location ~ ^/${_upstream,,}/\.php(/|\$) {
+            root ${zbx_opcache_scripts%/};
             access_log off;
             allow 127.0.0.1;
             deny all;
             fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
             fastcgi_param PATH_INFO \$fastcgi_path_info;
-            include /etc/nginx/snippets/server.available/php-fpm/${1,,}.conf;
+            include ${_upstream_file};
             include fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         }
 EOF
-                ;;
+                    ;;
+                esac
+
+                ln -sf "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}".d/scripts/php "${zbx_opcache_scripts%/}"
+            fi
+
+            echo "    }" | silent tee -a "${metrics_conf}"
+        fi
+
+        local _phpfpm_host
+## TODO old
+        if var_true "${NGINX_ENABLE_UPSTREAM_KEEPALIVE}" ; then
+            upstream_keepalive="keepalive ${NGINX_UPSTREAM_KEEPALIVE};"
+        fi
+
+        if [ -v NGINX_UPSTREAM_"${_upstream^^}"_HOST ]; then
+            _phpfpm_host=$(set -o posix ; set | grep -oE "^NGINX_UPSTREAM_${_upstream^^}_HOST=" | cut -d = -f2-)
+        else
+            case "${_pool_listen_type,,}" in
+                "tcp" )
+                    _phpfpm_host="127.0.0.1:${_pool_listen_tcp_port}"
+            ;;
+                "unix" )
+                    _phpfpm_host="${_pool_listen_unix_socket}"
+            ;;
             esac
-
-            ln -sf "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}".d/scripts/php ${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/scripts/php-${1,,}
         fi
 
-        echo "    }" | silent tee -a /etc/nginx/snippets/server.available/metrics.conf
+        create_folder "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/upstream/" "${NGINX_USER}:${NGINX_GROUP}" 755
+        local _upstream_conf="${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/upstream/upstream-phpfpm-${_upstream,,}.conf"
+
+        {
+            echo "upstream phpfpm-${_upstream,,}-upstream {"
+            if [ -n "${upstream_keepalive}" ]; then
+                echo "    ${upstream_keepalive}"
+            fi
+
+            IFS=',' read -r -a _hosts <<< "${_phpfpm_host}"
+            for _php_fpm_upstream in "${_hosts[@]}"; do
+                _php_fpm_upstream_host_socket_prefix=""
+                if [[ "${_php_fpm_upstream}" != *":"* ]]; then
+                    _php_fpm_upstream_host_socket_prefix="unix://"
+                fi
+
+                _opts="$(set -o posix ; set | grep -E "^PHPFPM_UPSTREAM_${_upstream^^}_OPTIONS=" | cut -d '=' -f2-)"
+                echo "    server ${_php_fpm_upstream_host_socket_prefix}${_php_fpm_upstream} ${_opts};"
+            done
+
+            echo "}"
+        } | silent tee "${_upstream_conf}"
     fi
-
-    local _phpfpm_host
-
-    if var_true "${NGINX_ENABLE_UPSTREAM_KEEPALIVE}" ; then
-        upstream_keepalive="keepalive ${NGINX_UPSTREAM_KEEPALIVE};"
-    fi
-
-    if [ -v NGINX_UPSTREAM_${1^^}_HOST ]; then
-        _phpfpm_host=$(set -o posix ; set | grep -oE "^NGINX_UPSTREAM_${1^^}_HOST=" | cut -d = -f2-)
-    else
-        case "${_pool_listen_type,,}" in
-            "tcp" )
-                _phpfpm_host="127.0.0.1:${_pool_listen_tcp_port}"
-        ;;
-            "unix" )
-                _phpfpm_host="${_pool_listen_unix_socket}"
-        ;;
-        esac
-    fi
-
-    mkdir -p /etc/nginx/snippets/upstream.available
-    _upstream_conf="/etc/nginx/snippets/upstream.available/upstream-phpfpm-${1,,}.conf"
-    echo "upstream phpfpm-${1,,}-upstream {" | silent tee "${_upstream_conf}"
-    echo "    ${upstream_keepalive}" | silent tee -a "${_upstream_conf}"
-
-    for _php_fpm_upstream in $(echo "${_phpfpm_host}" | tr "," "\n"); do
-        if [[ $_{_php_fpm_upstream} != *":"* ]];then
-            _php_fpm_upstream_host_socket_prefix="unix://"
-        fi
-
-        echo "    server ${_php_fpm_upstream_host_socket_prefix}${_php_fpm_upstream} $(set -o posix ; set | grep -oE "^PHPFPM_UPSTREAM_${1^^}_OPTIONS=" | cut -d = -f2-);" | silent tee -a "${_upstream_conf}"
-    done
-    echo "}" | silent tee -a "${_upstream_conf}"
-        if ! grep -qF "${_upstream_conf}" /etc/nginx/nginx.conf ; then
-            sed -i \
-                -e "/# Do not delete - Upstream Configuration/a\\ \ \ \ \ ### PHP-FPM Multiple Handlers configuration" \
-                -e "/# Do not delete - Upstream Configuration/a\\ \ \ \ \ include ${_upstream_conf};" \
-                /etc/nginx/nginx.conf
-        fi
 }
 
 phpfpm_configure_pools() {
@@ -257,19 +312,20 @@ phpfpm_configure_pools() {
         ## TODO - need to find a way to dynamically set this in nginx /sites.enabled or other file - NGINX_SITE_... PHPFPM_POOL_NGINX_SITE?
     fi
 
-    for phpfpm_pool in $(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n -e "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" -e "/^DEFAULT/d" ) ; do
+    phpfpm_pool_list=$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n 's/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p' | grep -v -E '^DEFAULT$' | tr '\n' ' ')
+    for phpfpm_pool in ${phpfpm_pool_list}; do
         _php_fpm_pool_vars="$(mktemp)"
         set -o posix ; set | grep -E "^PHPFPM_POOL_${phpfpm_pool}_|^PHPFPM_POOL_DEFAULT_" | tr " " "\n" > "${_php_fpm_pool_vars}"
         _phpfpm_pool_prefix="${php_prefix%/}/pools.d/${phpfpm_pool,,}"
         mkdir -p "${_phpfpm_pool_prefix}"
         echo "[${phpfpm_pool,,}]" | silent tee "${_phpfpm_pool_prefix}".conf
-        call phpfpm_configure_pool_listener ${phpfpm_pool}
-        call phpfpm_configure_pool_log ${phpfpm_pool}
-        call phpfpm_configure_pool_processmanagement ${phpfpm_pool}
-        call phpfpm_configure_pool_settings ${phpfpm_pool}
-        call phpfpm_configure_pool_environment ${phpfpm_pool}
-        call phpfpm_configure_pool_override ${phpfpm_pool}
-        call phpfpm_configure_nginx_upstream ${phpfpm_pool}
+        call phpfpm_configure_pool_listener "${phpfpm_pool}"
+        call phpfpm_configure_pool_log "${phpfpm_pool}"
+        call phpfpm_configure_pool_processmanagement "${phpfpm_pool}"
+        call phpfpm_configure_pool_settings "${phpfpm_pool}"
+        call phpfpm_configure_pool_environment "${phpfpm_pool}"
+        call phpfpm_configure_pool_override "${phpfpm_pool}"
+        call phpfpm_configure_nginx_upstream "${phpfpm_pool}"
         rm "${_php_fpm_pool_vars}"
     done
 }
@@ -388,7 +444,6 @@ EOF
 
     echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-settings.conf"
     echo "include = ${_phpfpm_pool_prefix}/${1,,}-settings.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
-
 }
 
 phpfpm_configure_pool_override() {
@@ -427,54 +482,28 @@ EOF
 }
 
 phpfpm_create_default_page() {
-    if var_true "${PHP_ENABLE_CREATE_SAMPLE_PHP}" ; then
-        if [ ! -f "${NGINX_WEBROOT}"/index.php ] ; then
-            print_notice "Creating sample index.php"
-            mkdir -p "${NGINX_WEBROOT}"
-            cat <<EOF | silent tee "${NGINX_WEBROOT}"/index.php
-    <html>
-    <title>Default Page</title>
-    <h2>Container is working</h2>
-    Congratulations! Your ${IMAGE_NAME} ${os} PHP-FPM image is working. You are seeing this because you don't have an index.php file in your ${PHP_WEBROOT} directory.<br />
-    <?php phpinfo();?>
-    </html>
+    if [ -n "${1}" ] ; then
+        local _sitename="${1}"
+        local _webroot="${2}"
+        local _index="${3}"
+        local enable_phpsample_var="PHP_SITE_${_sitename^^}_CREATE_SAMPLE_PHP"
+        local enable_phpsample_val
+        enable_phpsample_val="$(resolve_site_var "${enable_phpsample_var}" "${PHP_CREATE_SAMPLE_PHP:-${PHP_ENABLE_CREATE_SAMPLE_PHP:-}}" "${allow_defaults}")"
+        if [ -z "${enable_phpsample_val}" ] ; then enable_phpsample_val="false"; fi
+
+        if var_true "${enable_phpsample_val}" && [ ! -f "${_index}" ]; then
+            print_notice "[configure_site/${_sitename}] [php_create_default_page] Creating sample ${_index} for site at ${_webroot}"
+            create_folder "${_webroot}" "${NGINX_USER}:${NGINX_GROUP}" 750
+            cat <<EOF | silent sudo -u "${NGINX_USER}" tee "${_webroot%/}"/"${_index}"
+<html>
+<title>Default Page</title>
+<h2>Container is working</h2>
+Congratulations! Your ${IMAGE_NAME} $(container_info distro) $(container_info variant) PHP-FPM image is working. You are seeing this because you don't have an index.php file in your ${PHP_WEBROOT} directory.<br />
+For more info visit <a href="https://www.nfrastack.com/?ref=container-nginx-php-fpm">https://www.nfrastack.com</a><p>
+<?php phpinfo();?>
+</html>
 EOF
         fi
-    fi
-}
-
-phpfpm_configure_site_default() {
-    if [ -z "${NGINX_SITE_ENABLED}" ] && [ ! -f "/etc/nginx/sites.available/default.conf" ] && [ -f "/container/init/init.d/20-php-fpm" ]; then
-        cat <<EOF | silent tee /etc/nginx/sites.available/default.conf
-    server {
-        ### Don't Touch This
-        listen ${NGINX_LISTEN_PORT};
-        root ${NGINX_WEBROOT};
-
-        ### Populate your custom directives here
-        index  index.php index.html index.htm;
-
-        include ${NGINX_HEADER_FILE};
-
-        location / {
-            try_files \$uri \$uri/ /index.php?\$args;
-        }
-
-        ### Populate your custom directives here
-        location ~ \.php(/|\$) {
-            include /etc/nginx/snippets/server.available/php-fpm/${PHP_UPSTREAM}.conf;
-            fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
-            fastcgi_param PATH_INFO \$fastcgi_path_info;
-            fastcgi_index index.php;
-            include fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        }
-
-        ### Don't edit past here
-    }
-EOF
-        NGINX_SITE_ENABLED=default
-        nginx_site_enable default
     fi
 }
 
@@ -506,8 +535,6 @@ phpfpm_post_init() {
     esac
 
     if var_false "${PHP_KITCHENSINK}" ; then
-        php_enable_create_sample_php=${PHP_ENABLE_CREATE_SAMPLE_PHP}
-        unset PHP_ENABLE_CREATE_SAMPLE_PHP
         silent php-ext enable core
         print_debug "PHP-FPM Preparing to start with the following modules enabled: $(set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE |sed -e 's|PHP_MODULE_ENABLE_||g' -e 's|=TRUE||g' | awk -vRS="" -vOFS=', ' '$1=$1' | tr '[A-Z]' '[a-z]')"
     else
@@ -532,7 +559,7 @@ phpfpm_configure_server() {
         done
     fi
 
-    update_template /etc/nginx/snippets/server.available/php-fpm.conf PHPFPM_TIMEOUT
+    update_template "${NGINX_CONFIG_PATH%/}"/"${NGINX_CONFIG_FILE}".d/php-fpm/php-fpm.conf PHPFPM_TIMEOUT
 
     sed -i \
                 -e "s#memory_limit = .*#memory_limit = ${PHP_MEMORY_LIMIT}#g" \
@@ -547,16 +574,9 @@ phpfpm_configure_server() {
     call phpfpm_configure_server_timezone
 }
 
-phpfpm_configure_authentication_llng() {
-    print_notice "Adding LLNG Authentication parameters to nginx configuration"
-    if ! grep -q "include /etc/nginx/snippets/authentication/llng-includes;" /etc/nginx/snippets/server.available/php-fpm.conf ; then
-        echo "include /etc/nginx/snippets/authentication/llng-includes;" | silent tee -a /etc/nginx/snippets/server.available/php-fpm.conf
-    fi
-}
-
 phpfpm_configure_modules_apc() {
     if [ "${PHP_MODULE_APC_SHM_SIZE}" = "0" ]; then
-        sed -i -e "s/apc.enabled=1/apc.enabled=0/g" /container/data/php-fpm/conf.available/acpu.ini
+        sed -i -e "s#apc.enabled=1#apc.enabled=0#g" /container/data/php-fpm/conf.available/acpu.ini
     fi
 
     sed -i \
@@ -679,10 +699,45 @@ phpfpm_configure_server_socket() {
 }
 
 phpfpm_configure_nginx_hide_header() {
+    local dest="${NGINX_CONFIG_PATH%/}"/"${NGINX_CONFIG_FILE%/}".d/http/headers-php.conf
     if var_true "${PHP_HIDE_X_POWERED_BY}" ; then
-        sed -i \
-                    -e "/fastcgi_buffer_size/a \    fastcgi_hide_header X-Powered-By;" \
-                /etc/nginx/nginx.conf
+        ln -s /container/data/nginx/templates/server/http-fastcgi_hide_header_xpowered.template "${dest}"
+    else
+        rm -f "${dest}"
+    fi
+}
+
+phpfpm_create_nginx_location_block() {
+    if [ -z "${1:-}" ]; then return 1; fi
+    local _sitename="${1}"
+    local _site_path="${2:-}"
+
+    if [ -z "${_site_path}" ]; then
+        if [ -f "${NGINX_CONFIG_PATH%/}/sites.enabled/${_sitename}.conf" ]; then
+            _site_path="${NGINX_CONFIG_PATH%/}/sites.enabled/${_sitename}.conf"
+        fi
+    fi
+
+    if [ -z "${_site_path}" ]; then
+        print_debug "[create_location_block/${_sitename}] No site path available, skipping"
+        return 0
+    fi
+
+    local site_location="${_site_path%.*}/location"
+    local template_src="/container/data/nginx/templates/site/location-php-block.template"
+
+    # Inject only when the dir is missing, empty, or does not already contain
+    # a PHP location block (lines like: location ...php... { )
+    if [ ! -d "${site_location}" ] || dir_empty "${site_location}" || ! grep -RiqE '^[[:space:]]*location[[:space:]]+[^\{]*php[^\{]*[[:space:]]*\{' "${site_location}" 2>/dev/null ; then
+        if [ -f "${template_src}" ]; then
+            print_info "[create_location_block/${_sitename}] Installing php location block into ${site_location}"
+            mkdir -p "${site_location}"
+            cp -a "${template_src}" "${site_location}/php_block.conf"
+        else
+            print_warn "[create_location_block/${_sitename}] Template ${template_src} not found"
+        fi
+    else
+        print_debug "[create_location_block/${_sitename}] Existing PHP location block found, skipping"
     fi
 }
 

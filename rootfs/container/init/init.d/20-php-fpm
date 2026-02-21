@@ -44,12 +44,12 @@ esac
 if check_container_restarted; then
     if var_true "${CONTAINER_ENABLE_MONITORING}" ; then source /container/base/defaults/*-monitoring; fi
     phpfpm_bootstrap
-    phpfpm_configure_logging
-    phpfpm_configure_environment_variables
-    phpfpm_configure_modules
-    phpfpm_configure_pools
-    phpfpm_configure_server
-    if [[ "${PHPFPM_CONTAINER_MODE,,}" == *"nginx"* ]] ; then phpfpm_configure_nginx ; fi
+    phpfpm_server_configure_logging
+    phpfpm_server_configure_environment_variables
+    phpfpm_server_configure_modules
+    phpfpm_server_configure_pools
+    phpfpm_server_configure
+    if [[ "${PHPFPM_CONTAINER_MODE,,}" == *"nginx"* ]] ; then phpfpm_nginx_site_configure ; fi
     phpfpm_post_init
 fi
 liftoff

@@ -174,7 +174,7 @@ phpfpm_configure_nginx_upstream() {
         local _upstream="${1}"
         local _upstream_file="${NGINX_CONFIG_PATH%/}"/"${NGINX_CONFIG_FILE}".d/php-fpm/${_upstream,,}.conf
         create_folder "$(dirname "${_upstream_file}")" "${NGINX_USER}:${NGINX_GROUP}" 755
-        cat << EOF | silent tee "${_upstream_file}"
+        write_file "${_upstream_file}":644 <<EOF
 fastcgi_pass            phpfpm-${_upstream,,}-upstream;
 fastcgi_read_timeout    ${_pool_max_execution_time};
 fastcgi_send_timeout    ${_pool_max_execution_time};
@@ -194,7 +194,7 @@ EOF
                 local _poolsuffix="\$"
             fi
 
-            cat <<EOF | silent tee -a "${metrics_conf}"
+            write_file -a "${metrics_conf}":644 <<EOF
 
         location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
             access_log off;
@@ -212,7 +212,7 @@ EOF
                         local zbx_opcache_module="${ZABBIX_CONFIG_PATH%/}/${ZABBIX_CONFIG_FILE%/}.d/nfrastack-php_module_opcache.conf"
                         local zbx_opcache_scripts="$(dirname "${zbx_opcache_module%/}")/scripts/php-${_upstream,,}/"
                         if [ !  -f "${zbx_opcache_module}" ]; then
-                            cat <<EOF | silent tee "${zbx_opcache_module}"
+                            write_file "${zbx_opcache_module}":644 <<EOF
 # Zabbix PHP Opcache Configuration - Automatically Generated
 # Find Companion Zabbix Server Templates at https://github.com/nfrastack/container-nginx-php-fpm
 # Autoregister=opcache
@@ -220,12 +220,12 @@ EOF
 EOF
                         fi
 
-                        cat <<EOF | silent tee -a "${zbx_opcache_module}"
+                        write_file -a "${zbx_opcache_module}":644 <<EOF
 UserParameter=php.opcache.get_status,sudo -Eu zabbix php ${zbx_opcache_scripts%/}/opcache-status.php
 UserParameter=php.opcache.get_settings,sudo -Eu zabbix php ${zbx_opcache_scripts%/}/opcache-settings.php
 EOF
 
-                        cat <<EOF | silent tee -a "${metrics_conf}"
+                        write_file -a "${metrics_conf}":644 <<EOF
 
         location ~ ^/${_upstream,,}/\.php(/|\$) {
             root ${zbx_opcache_scripts%/};
@@ -494,7 +494,7 @@ phpfpm_create_default_page() {
         if var_true "${enable_phpsample_val}" && [ ! -f "${_index}" ]; then
             print_notice "[configure_site/${_sitename}] [php_create_default_page] Creating sample ${_index} for site at ${_webroot}"
             create_folder "${_webroot}" "${NGINX_USER}:${NGINX_GROUP}" 750
-            cat <<EOF | silent sudo -u "${NGINX_USER}" tee "${_webroot%/}"/"${_index}"
+            write_file "${NGINX_USER}":"${NGINX_GROUP}" "${_webroot%/}"/"${_index}":644 <<EOF
 <html>
 <title>Default Page</title>
 <h2>Container is working</h2>
@@ -588,8 +588,8 @@ phpfpm_configure_modules_apc() {
 phpfpm_configure_modules_opcache() {
     if [ "${PHP_MODULE_OPCACHE_MEM_SIZE}" = "0" ] || var_false "${PHP_MODULE_ENABLE_OPCACHE}" ; then
         sed -i \
-                    -e "s/opcache.enable=1/opcache.enable=0/g" \
-                    -e "s/opcache.enable_cli=1/opcache.enable_cli=0/g" \
+                    -e "s|opcache.enable=1|opcache.enable=0|g" \
+                    -e "s|opcache.enable_ci=1|opcache.enable_cli=0|g" \
                 /container/data/php-fpm/conf.available/opcache.ini
     else
         sed -i \
@@ -621,7 +621,7 @@ phpfpm_configure_modules_xdebug() {
         mkdir "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
         chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHP_MODULE_XDEBUG_PROFILER_PATH}"
         if [ "${PHP_BASE:0:1}" = "5" ] || [ "${PHP_BASE:0:3}" = "7.0" ] || [ "${PHP_BASE:0:3}" = "7.1" ] ; then
-            cat <<EOF | silent tee -a "${php_prefix}"conf.available/xdebug.ini
+            write_file -a "${php_prefix}"conf.available/xdebug.ini:644 <<EOF
 zend_extension=xdebug.so
 xdebug.default_enable = 1
 xdebug.profiler_enable= ${PHP_MODULE_XDEBUG_PROFILER_ENABLE}
@@ -635,7 +635,7 @@ xdebug.remote_host = ${PHP_MODULE_XDEBUG_REMOTE_HOST}
 xdebug.remote_port = ${PHP_MODULE_XDEBUG_REMOTE_PORT}
 EOF
     	else
-	    	cat <<EOF | silent tee -a "${php_prefix}"conf.available/xdebug.ini
+	    	write_file -a "${php_prefix}"conf.available/xdebug.ini:644 <<EOF
 zend_extension=xdebug.so
 xdebug.default_enable = 1
 xdebug.output_dir = ${PHP_MODULE_XDEBUG_OUTPUT_DIR}

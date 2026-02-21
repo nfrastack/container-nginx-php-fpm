@@ -701,7 +701,7 @@ phpfpm_configure_server_socket() {
 phpfpm_configure_nginx_hide_header() {
     local dest="${NGINX_CONFIG_PATH%/}"/"${NGINX_CONFIG_FILE%/}".d/http/headers-php.conf
     if var_true "${PHP_HIDE_X_POWERED_BY}" ; then
-        ln -s /container/data/nginx/templates/server/http-fastcgi_hide_header_xpowered.template "${dest}"
+        cp -a /container/data/nginx/templates/server/http-fastcgi_hide_header_xpowered.template "${dest}"
     else
         rm -f "${dest}"
     fi

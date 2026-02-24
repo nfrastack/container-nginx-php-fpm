@@ -9,7 +9,7 @@ prepare_service 20-php-fpm single
 SERVICE_NAME="php-fpm"
 
 if var_false "${ENABLE_PHPFPM}" ; then
-    print_notice "Disabling PHP-FPM Functionality"
+    print_debug "Disabling PHP-FPM Functionality"
     service_stop 20-php-fpm
     rm -rf \
             /container/logrotate/php-fpm* \

@@ -1,6 +1,12 @@
-## 8.0.0pre 2024-07-25 <code at nfrastack dot com>
+## 8.0.0 2026-02-23 <code at nfastack dot com>
 
-   ###
+   ### Added
+      - Supporting PHP 8.5 and Alpine 3.23
+      - Multiple Pool Support
+      - Many differnet customization options
+      - Dynamic configuration of PHP location block
+      - Uses nfrastack/container-nginx:8.x.x as base image
+
 
 ## 7.7.20 2025-08-16 <dave at tiredofit dot ca>
 

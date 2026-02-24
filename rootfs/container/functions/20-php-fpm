@@ -44,7 +44,7 @@ phpfpm_nginx_create_location_block() {
     local site_location="${_site_path%.*}/location"
     local template_src="/container/data/nginx/templates/site/location-php-block.template"
 
-        if [ ! -d "${site_location}" ] || dir_empty "${site_location}" || ! grep -RniE '^[[:space:]]*location[[:space:]]+[^{}]*php[^{}]*[[:space:]]*\{' "${site_location}" 2>/dev/null ; then
+        if [ ! -d "${site_location}" ] || dir_empty "${site_location}" || ! grep -qRniE '^[[:space:]]*location[[:space:]]+[^{}]*php[^{}]*[[:space:]]*\{' "${site_location}" 2>/dev/null ; then
         if [ -f "${template_src}" ]; then
             print_notice "[create_location_block/${_sitename}] Installing php location block into ${site_location}"
             mkdir -p "${site_location}"

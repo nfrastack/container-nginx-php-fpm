@@ -80,50 +80,55 @@ RUN echo "" && \
                                     postgresql-client \
                                 " \
                            && \
+    export PHP_8_5_RUN_DEPS_ALPINE=" \
+                                        gnu-libiconv \
+                                        mariadb-connector-c \
+                                   " && \
+    \
     export PHP_8_4_RUN_DEPS_ALPINE=" \
                                         gnu-libiconv \
                                         mariadb-connector-c \
-                                        " && \
+                                   " && \
     \
     export PHP_8_3_RUN_DEPS_ALPINE=" \
                                         gnu-libiconv \
                                         mariadb-connector-c \
-                                        " && \
+                                   " && \
     \
     export PHP_8_2_RUN_DEPS_ALPINE=" \
                                         gnu-libiconv \
                                         mariadb-connector-c \
-                                        " && \
+                                   " && \
     \
      export PHP_8_1_RUN_DEPS_ALPINE=" \
                                         gnu-libiconv \
                                         mariadb-connector-c \
-                                        " && \
+                                    " && \
     \
     export PHP_8_0_RUN_DEPS_ALPINE=" \
                                         gnu-libiconv \
                                         mariadb-connector-c \
-                                        " && \
+                                   " && \
     \
     export PHP_7_4_RUN_DEPS_ALPINE=" \
                                         mariadb-connector-c \
-                                        " && \
+                                   " && \
     \
     export PHP_7_3_RUN_DEPS_ALPINE=" \
                                         mariadb-connector-c \
-                                        " && \
+                                   " && \
     \
     export PHP_7_2_RUN_DEPS_ALPINE=" \
-                                        " && \
+                                   " && \
     \
     export PHP_7_1_RUN_DEPS_ALPINE=" \
-                                        " && \
+                                   " && \
     \
     export PHP_7_0_RUN_DEPS_ALPINE=" \
-                                        " && \
+                                   " && \
     \
     export PHP_5_6_RUN_DEPS_ALPINE=" \
-                                        " && \
+                                   " && \
     \
     export PHP_RUN_DEPS_DEBIAN=" \
                                     ca-certificates \
@@ -132,26 +137,29 @@ RUN echo "" && \
                                     php-pear \
                                     postgresql-client \
                                 " \
+    export PHP_8_5_RUN_DEPS_DEBIAN=" \
+                                   " && \
+    \
     export PHP_8_4_RUN_DEPS_DEBIAN=" \
                                     " && \
     \
     export PHP_8_3_RUN_DEPS_DEBIAN=" \
-                                    " && \
+                                   " && \
     \
     export PHP_8_2_RUN_DEPS_DEBIAN=" \
-                                    " && \
+                                   " && \
     \
     export PHP_8_1_RUN_DEPS=_DEBIAN" \
-                                        " && \
+                                   " && \
     \
     export PHP_8_0_RUN_DEPS_DEBIAN=" \
-                                        " && \
+                                   " && \
     \
     export PHP_7_4_RUN_DEPS_DEBIAN=" \
-                                        " && \
+                                   " && \
     \
     export PHP_7_3_RUN_DEPS_DEBIAN=" \
-                                        " && \
+                                   " && \
     \
     source /container/base/functions/container/build && \
     container_build_log image && \
@@ -193,7 +201,6 @@ RUN echo "" && \
     case "$(container_info distro)" in \
         "alpine" ) \
             package install $(apk search -q php${_php_version} | grep "^php${_php_version}" | sed -e "/-cgi/d" -e "/-apache2/d" -e "/-doc/d" -e "/-dbg/d") ; \
-            #if [ -f "${_php_folder}"/conf.d/*magick*.ini ]; then mv "${_php_folder}"/conf.d/*magick*.ini /tmp; fi; \
             sed -i "s|;cgi.fix_pathinfo=1|cgi.fix_pathinfo=0|g" ${_php_folder}/php.ini ; \
         ;; \
         "debian" ) \
@@ -267,6 +274,5 @@ RUN echo "" && \
     rm -rf \
             /root/.composer
 
-EXPOSE 9000
 
 COPY rootfs /

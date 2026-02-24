@@ -176,7 +176,7 @@ enable_module () {
                     echo "** Activating Optional Modules"
                     for module in "${modules_available}"/*.ini; do
                         if ! grep -w -i -q "$(basename ${module} .ini)" "${php_env_modules_enabled}"; then
-                            echo "Enabling $(basename ${module} .ini)"
+                            echo "[php-ext] Enabling $(basename ${module} .ini)"
                             case "${os}" in
                                 "alpine" )
                                     ln -sf "${module}" ${php_prefix}conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})
@@ -200,7 +200,7 @@ enable_module () {
                         done
 
                         if [[ "$MATCH" -lt 1 ]] ; then
-                            echo "Enabling $(basename ${module} .ini)"
+                            echo "[php-ext] Enabling $(basename ${module} .ini)"
                             case "${os}" in
                                 "alpine" )
                                     ln -sf "${module}" ${php_prefix}conf.d/$(cat ${module} | grep ";priority" | cut -d = -f 2)-$(basename ${module})

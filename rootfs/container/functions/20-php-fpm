@@ -709,10 +709,13 @@ phpfpm_nginx_site_configure_php() {
         local php_index_file=""
         local _site_index_var="NGINX_SITE_${_sitename^^}_INDEXFILE"
         if [ -n "${!_site_index_var:-}" ]; then
-            php_index_file="${!_site_index_var}"
+            _site_index_val="${!_site_index_var}"
+            IFS=$', ' read -ra _idx_arr <<< "${_site_index_val}"
+            php_index_file="${_idx_arr[0]}"
         else
             if [ "${allow_defaults,,}" = "true" ] && [ -n "${NGINX_INDEX_FILE}" ]; then
-                php_index_file="${NGINX_INDEX_FILE}"
+                IFS=$', ' read -ra _idx_arr <<< "${NGINX_INDEX_FILE}"
+                php_index_file="${_idx_arr[0]}"
             else
                 php_index_file="index.php"
             fi

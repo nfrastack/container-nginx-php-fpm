@@ -94,48 +94,19 @@ Images are built for `amd64` by default, with optional support for `arm64` and o
 * Map [persistent storage](#persistent-storage) for access to configuration and data files for backup.
 * Set various [environment variables](#environment-variables) to understand the capabilities of this image.
 
-The container starts up and reads from `/etc/nginx/nginx.conf` for some basic configuration and to listen on port 73 internally for Nginx Status responses. Configuration of websites are done in `/etc/services.available` with the filename pattern of `site.conf`. You must set an environment variable for `NGINX_SITE_ENABLED` if you have more than one configuration in there if you only want to enable one of the configurartions, otherwise it will enable all of them. Use `NGINX_SITE_ENABLED=null` to break a parent image declaration.
+Refer to the nginx upstream readme for configuration. If you do not create any configuration files for the sites, a default PHP location block will be added to your site
 
-Use this as a starting point for your site configurations:
-# WIP
+```nginx
+location ~ [^/]\.php(/|$) {
+    try_files $fastcgi_script_name =404; # Fail if script missing
+    {{php_upstream}};
+    fastcgi_split_path_info ^(.+\.php)(/.+)$;
+    fastcgi_index {{php_index_file}};
+    {{fastcgi_params}};
+}
+```
 
-
-````nginx
-  server {
-      ### Don't Touch This
-      listen {{NGINX_LISTEN_PORT}};
-      server_name localhost;
-      root {{NGINX_WEBROOT}};
-
-      ### Populate your custom directives here
-      index  index.php index.html index.htm;
-
-      # Deny access to any files with a .php extension in the uploads directory
-      location ~* /(?:uploads|files)/.*\.php$ {
-          deny all;
-      }
-
-      location / {
-          try_files \$uri \$uri/ /index.php?\$args;
-      }
-
-      ### Populate your custom directives here
-        location ~ \.php(/|\$) {
-          # Include the php-fpm pool include file. Replace <config> with your
-          # nginx config base name (see NGINX_CONFIG_PATH and NGINX_CONFIG_FILE).
-          include ${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/{{PHP_POOL}}.conf;
-          fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
-          fastcgi_param PATH_INFO \$fastcgi_path_info;
-          fastcgi_index index.php;
-          include fastcgi_params;
-          fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-      }
-
-      ### Don't edit past here
-      include /etc/nginx/snippets/site_optimization.conf;
-      include /etc/nginx/snippets/exploit_protection.conf;
-    }
-````
+{{php_upstream}} will get replaced on container start with your PHP POOL value, and {{fastcgi_params}} will get replaced with the location of your nginx fastcgi_params.
 
 ### Persistent Storage
 
@@ -164,18 +135,18 @@ Below is the complete list of available options that can be used to customize yo
 
 #### Core Configuration
 
-| Variable                | Description                         | Default                             | Site |
-| ----------------------- | ----------------------------------- | ----------------------------------- | ---- |
-| `ENABLE_PHP_FPM`        | Enable PHP-FPM container mode       | `TRUE`                              |      |
-| `PHPFPM_CONTAINER_MODE` | Container mode for PHP-FPM          | `nginx-php-fpm`                     |      |
-| `PHP_CREATE_SAMPLE_PHP` | Create a sample PHP page on startup | `TRUE`                              |      |
-| `PHP_HIDE_X_POWERED_BY` | Hide X-Powered-By header            | `TRUE`                              |      |
-| `PHP_KITCHENSINK`       | Enable all PHP extensions           | `FALSE`                             |      |
-| `PHP_MEMORY_LIMIT`      | PHP memory limit                    | `128M`                              |      |
-| `PHP_POST_MAX_SIZE`     | Maximum POST size                   | `2G`                                |      |
-| `PHP_TIMEOUT`           | Script execution timeout            | `180`                               |      |
-| `PHP_UPLOAD_MAX_SIZE`   | Maximum upload size                 | `2G`                                |      |
-| `PHP_WEBROOT`           | Webroot directory                   | `/www/html` (or `${NGINX_WEBROOT}`) |      |
+| Variable                | Description                         | Default                             |
+| ----------------------- | ----------------------------------- | ----------------------------------- |
+| `ENABLE_PHP_FPM`        | Enable PHP-FPM container mode       | `TRUE`                              |
+| `PHPFPM_CONTAINER_MODE` | Container mode for PHP-FPM          | `nginx-php-fpm`                     |
+| `PHP_CREATE_SAMPLE_PHP` | Create a sample PHP page on startup | `TRUE`                              |
+| `PHP_HIDE_X_POWERED_BY` | Hide X-Powered-By header            | `TRUE`                              |
+| `PHP_KITCHENSINK`       | Enable all PHP extensions           | `FALSE`                             |
+| `PHP_MEMORY_LIMIT`      | PHP memory limit                    | `128M`                              |
+| `PHP_POST_MAX_SIZE`     | Maximum POST size                   | `2G`                                |
+| `PHP_TIMEOUT`           | Script execution timeout            | `180`                               |
+| `PHP_UPLOAD_MAX_SIZE`   | Maximum upload size                 | `2G`                                |
+| `PHP_WEBROOT`           | Webroot directory                   | `/www/html` (or `${NGINX_WEBROOT}`) |
 
 #### PHP Environment
 

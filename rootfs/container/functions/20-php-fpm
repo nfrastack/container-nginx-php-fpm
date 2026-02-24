@@ -46,7 +46,7 @@ phpfpm_nginx_create_location_block() {
 
         if [ ! -d "${site_location}" ] || dir_empty "${site_location}" || ! grep -RniE '^[[:space:]]*location[[:space:]]+[^{}]*php[^{}]*[[:space:]]*\{' "${site_location}" 2>/dev/null ; then
         if [ -f "${template_src}" ]; then
-            print_debug "[create_location_block/${_sitename}] Installing php location block into ${site_location}"
+            print_notice "[create_location_block/${_sitename}] Installing php location block into ${site_location}"
             mkdir -p "${site_location}"
             cp -a "${template_src}" "${site_location}/php_block.conf"
         else

@@ -1,3 +1,9 @@
+## 8.0.1 2026-02-24 <code at nfastack dot com>
+
+   ### Changed
+      - Upstream and index placeholder repairs
+
+
 ## 8.0.0 2026-02-23 <code at nfastack dot com>
 
    ### Added

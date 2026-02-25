@@ -707,7 +707,7 @@ phpfpm_nginx_site_configure_php() {
         ln -sf "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_nginxphpconf}.conf" "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/php-fpm.conf"
 
         local php_index_file=""
-        local _site_index_var="NGINX_SITE_${_sitename^^}_INDEXFILE"
+        local _site_index_var="NGINX_SITE_${_sitename^^}_INDEX_FILE"
         if [ -n "${!_site_index_var:-}" ]; then
             _site_index_val="${!_site_index_var}"
             IFS=$', ' read -ra _idx_arr <<< "${_site_index_val}"
@@ -721,6 +721,11 @@ phpfpm_nginx_site_configure_php() {
             fi
         fi
         local nginx_index_file="${php_index_file}"
+        local site_index="${php_index_file}"
+        render_template \
+                            /container/data/nginx/templates/site/server-index.template \
+                            "${NGINX_CONFIG_PATH%/}"/sites.enabled/"${_sitename}"/server-begin/21-index.conf \
+                        site_index
         local php_upstream="include ${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_nginxphpconf}.conf"
         if [ -n "${site_path}" ] && [ -f "${site_path}" ] && [ -f "${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_nginxphpconf}.conf" ]; then
             while IFS= read -r -d '' _file; do

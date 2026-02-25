@@ -23,35 +23,6 @@ ARG \
     PHP_BASE
 
 ENV \
-    PHP_MODULE_ENABLE_APCU=TRUE \
-    PHP_MODULE_ENABLE_BCMATH=TRUE \
-    PHP_MODULE_ENABLE_BZ2=TRUE \
-    PHP_MODULE_ENABLE_CTYPE=TRUE \
-    PHP_MODULE_ENABLE_CURL=TRUE \
-    PHP_MODULE_ENABLE_DOM=TRUE \
-    PHP_MODULE_ENABLE_EXIF=TRUE \
-    PHP_MODULE_ENABLE_FILEINFO=TRUE \
-    PHP_MODULE_ENABLE_GD=TRUE \
-    PHP_MODULE_ENABLE_ICONV=TRUE \
-    PHP_MODULE_ENABLE_IMAP=TRUE \
-    PHP_MODULE_ENABLE_INTL=TRUE \
-    PHP_MODULE_ENABLE_MBSTRING=TRUE \
-    PHP_MODULE_ENABLE_MYSQLI=TRUE \
-    PHP_MODULE_ENABLE_MYSQLND=TRUE \
-    PHP_MODULE_ENABLE_OPCACHE=TRUE \
-    PHP_MODULE_ENABLE_OPENSSL=TRUE \
-    PHP_MODULE_ENABLE_PDO=TRUE \
-    PHP_MODULE_ENABLE_PDO_MYSQL=TRUE \
-    PHP_MODULE_ENABLE_PGSQL=TRUE \
-    PHP_MODULE_ENABLE_PHAR=TRUE \
-    PHP_MODULE_ENABLE_SESSION=TRUE \
-    PHP_MODULE_ENABLE_SIMPLEXML=TRUE \
-    PHP_MODULE_ENABLE_TOKENIZER=TRUE \
-    PHP_MODULE_ENABLE_XML=TRUE \
-    PHP_MODULE_ENABLE_XMLREADER=TRUE \
-    PHP_MODULE_ENABLE_XMLWRITER=TRUE \
-    PHPFPM_USER="nginx" \
-    PHPFPM_GROUP="www-data" \
     CONTAINER_ENABLE_MESSAGING=TRUE \
     IMAGE_NAME="nfrastack/nginx-php-fpm" \
     IMAGE_REPO_URL="https://github.com/nfrastack/container-nginx-php-fpm/"
@@ -62,8 +33,37 @@ COPY README.md /usr/src/container/README.md
 
 RUN echo "" && \
     export BUILD_ENV=" \
-                        10-nginx/NGINX_ENABLE_CREATE_SAMPLE_HTML=FALSE \
+                        10-nginx/NGINX_CREATE_SAMPLE_HTML=FALSE \
                         10-nginx/NGINX_INDEX_FILE=index.php \
+                        20-php-fpm/PHP_MODULE_ENABLE_APCU=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_BCMATH=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_BZ2=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_CTYPE=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_CURL=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_DOM=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_EXIF=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_FILEINFO=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_GD=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_ICONV=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_IMAP=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_INTL=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_MBSTRING=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_MYSQLI=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_MYSQLND=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_OPCACHE=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_OPENSSL=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_PDO=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_PDO_MYSQL=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_PGSQL=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_PHAR=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_SESSION=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_SIMPLEXML=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_TOKENIZER=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_XML=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_XMLREADER=TRUE \
+                        20-php-fpm/PHP_MODULE_ENABLE_XMLWRITER=TRUE \
+                        20-php-fpm/PHPFPM_USER=env:NGINX_USER \
+                        20-php-fpm/PHPFPM_GROUP=env:NGINX_GROUP \
                      " \
                      && \
     export PHP_BUILD_DEPS_ALPINE="  \

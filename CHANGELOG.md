@@ -1,3 +1,5 @@
+## 8.0.2pre 2026-02-24 <code at nfastack
+
 ## 8.0.1 2026-02-24 <code at nfastack dot com>
 
    ### Changed

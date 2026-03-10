@@ -268,11 +268,13 @@ phpfpm_server_configure_environment_variables() {
 }
 
 phpfpm_server_configure_logging() {
+    set -x
     mkdir -p \
                 "${php_prefix%/}"/php-fpm.d/ \
                 "${PHPFPM_LOG_ERROR_PATH}"
     touch "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}"
     chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHPFPM_LOG_ERROR_PATH%/}"
+    set +x
     create_logrotate phpfpm-error "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}" phpfpm-error "${PHPFPM_USER}" "${PHPFPM_GROUP}"
 
     configure_server_logging="$(cat <<EOF
@@ -305,12 +307,19 @@ phpfpm_server_configure_pools() {
     local _phpfpm_pool_prefix
 
     _transform_phpfpmpool_variable() {
-        if grep -q "^PHPFPM_${1}_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)" != "unset" ]; then
-            export "$3"="$(grep "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)"
-        elif grep -q "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)" != "unset" ]; then
-            export "$3"="$(grep "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)"
-        elif grep -q "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep "^PHPFPM_DEFAULT_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)" != "unset" ]; then
-            export "$3"="$(grep "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2)"
+        local _val
+        if grep -q -m1 "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep -m1 "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2-)" != "unset" ]; then
+            _val=$(grep -m1 "^PHPFPM_POOL_${1}_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2- | sed "s/^['\"]//; s/['\"]$//")
+            export "$3"="${_val}"
+            transform_var env "$3"
+        elif grep -q -m1 "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep -m1 "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2-)" != "unset" ]; then
+            _val=$(grep -m1 "^PHP_FPM_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2- | sed "s/^['\"]//; s/['\"]$//")
+            export "$3"="${_val}"
+            transform_var env "$3"
+        elif grep -q -m1 "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" && [ "$(grep -m1 "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2-)" != "unset" ]; then
+            _val=$(grep -m1 "^PHPFPM_POOL_DEFAULT_${2}=" "${_php_fpm_pool_vars}" | cut -d = -f2- | sed "s/^['\"]//; s/['\"]$//")
+            export "$3"="${_val}"
+            transform_var env "$3"
         fi
     }
 
@@ -471,6 +480,7 @@ phpfpm_server_pool_environment() {
 }
 
 phpfpm_server_pool_listener() {
+set -x
     _transform_phpfpmpool_variable "${1^^}" LISTEN_TYPE _pool_listen_type
 
     case "${_pool_listen_type}" in
@@ -510,6 +520,7 @@ EOF
     esac
     echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-listener.conf"
     echo "include = ${_phpfpm_pool_prefix}/${1,,}-listener.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+set +x
 }
 
 phpfpm_server_pool_log() {

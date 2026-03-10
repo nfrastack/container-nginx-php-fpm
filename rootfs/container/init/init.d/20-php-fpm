@@ -42,6 +42,12 @@ case "${PHPFPM_CONTAINER_MODE,,}" in
 esac
 
 if check_container_restarted; then
+    echo "PHPFPM_USER ${PHPFPM_USER}"
+    echo "PHPFPM_GROUP ${PHPFPM_GROUP}"
+    echo "NGINX_USER ${NGINX_USER}"
+    echo "NGINX_GROUP ${NGINX_GROUP}"
+    echo "PHP_MODULE_ENABLE_PDO ${PHP_MODULE_ENABLE_PDO}"
+    echo "PHP_MODULE_ENABLE_IMAP ${PHP_MODULE_ENABLE_IMAP}"
     if var_true "${CONTAINER_ENABLE_MONITORING}" ; then source /container/base/defaults/*-monitoring; fi
     phpfpm_bootstrap
     phpfpm_server_configure_logging

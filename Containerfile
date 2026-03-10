@@ -62,8 +62,8 @@ RUN echo "" && \
                         20-php-fpm/PHP_MODULE_ENABLE_XML=TRUE \
                         20-php-fpm/PHP_MODULE_ENABLE_XMLREADER=TRUE \
                         20-php-fpm/PHP_MODULE_ENABLE_XMLWRITER=TRUE \
-                        20-php-fpm/PHPFPM_USER=env:NGINX_USER \
-                        20-php-fpm/PHPFPM_GROUP=env:NGINX_GROUP \
+                        20-php-fpm/PHPFPM_USER=[env:NGINX_USER] \
+                        20-php-fpm/PHPFPM_GROUP=[env:NGINX_GROUP] \
                      " \
                      && \
     export PHP_BUILD_DEPS_ALPINE="  \

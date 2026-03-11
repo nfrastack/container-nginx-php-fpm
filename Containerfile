@@ -32,134 +32,134 @@ COPY LICENSE /usr/src/container/LICENSE
 COPY README.md /usr/src/container/README.md
 
 RUN echo "" && \
-    export BUILD_ENV=" \
-                        10-nginx/NGINX_CREATE_SAMPLE_HTML=FALSE \
-                        10-nginx/NGINX_INDEX_FILE=index.php \
-                        20-php-fpm/PHP_MODULE_ENABLE_APCU=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_BCMATH=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_BZ2=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_CTYPE=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_CURL=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_DOM=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_EXIF=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_FILEINFO=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_GD=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_ICONV=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_IMAP=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_INTL=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_MBSTRING=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_MYSQLI=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_MYSQLND=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_OPCACHE=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_OPENSSL=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_PDO=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_PDO_MYSQL=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_PGSQL=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_PHAR=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_SESSION=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_SIMPLEXML=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_TOKENIZER=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_XML=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_XMLREADER=TRUE \
-                        20-php-fpm/PHP_MODULE_ENABLE_XMLWRITER=TRUE \
-                        20-php-fpm/PHPFPM_USER=[env:NGINX_USER] \
-                        20-php-fpm/PHPFPM_GROUP=[env:NGINX_GROUP] \
-                     " \
-                     && \
-    export PHP_BUILD_DEPS_ALPINE="  \
-                                    build-base \
-                                    php${PHP_BASE/./}-dev \
-                                 " \
-                                 && \
-    export PHP_BUILD_DEPS_DEBIAN="  \
-                                  " \
-                                  && \
-    export PHP_RUN_DEPS_ALPINE="  \
-                                    mariadb-client \
-                                    mariadb-connector-c \
-                                    postgresql-client \
+    BUILD_ENV=" \
+                10-nginx/NGINX_CREATE_SAMPLE_HTML=FALSE \
+                10-nginx/NGINX_INDEX_FILE=index.php \
+                20-php-fpm/PHP_MODULE_ENABLE_APCU=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_BCMATH=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_BZ2=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_CTYPE=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_CURL=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_DOM=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_EXIF=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_FILEINFO=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_GD=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_ICONV=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_IMAP=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_INTL=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_MBSTRING=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_MYSQLI=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_MYSQLND=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_OPCACHE=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_OPENSSL=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_PDO=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_PDO_MYSQL=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_PGSQL=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_PHAR=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_SESSION=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_SIMPLEXML=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_TOKENIZER=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_XML=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_XMLREADER=TRUE \
+                20-php-fpm/PHP_MODULE_ENABLE_XMLWRITER=TRUE \
+                20-php-fpm/PHPFPM_USER=[env:NGINX_USER] \
+                20-php-fpm/PHPFPM_GROUP=[env:NGINX_GROUP] \
+                " \
+                && \
+    PHP_BUILD_DEPS_ALPINE="  \
+                                build-base \
+                                php${PHP_BASE/./}-dev \
                                 " \
-                           && \
-    export PHP_8_5_RUN_DEPS_ALPINE=" \
-                                        gnu-libiconv \
-                                        mariadb-connector-c \
-                                   " && \
+                                && \
+    PHP_BUILD_DEPS_DEBIAN="  \
+                          " \
+                          && \
+    PHP_RUN_DEPS_ALPINE="  \
+                            mariadb-client \
+                            mariadb-connector-c \
+                            postgresql-client \
+                        " \
+                        && \
+    PHP_8_5_RUN_DEPS_ALPINE=" \
+                                gnu-libiconv \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_8_4_RUN_DEPS_ALPINE=" \
-                                        gnu-libiconv \
-                                        mariadb-connector-c \
-                                   " && \
+    PHP_8_4_RUN_DEPS_ALPINE=" \
+                                gnu-libiconv \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_8_3_RUN_DEPS_ALPINE=" \
-                                        gnu-libiconv \
-                                        mariadb-connector-c \
-                                   " && \
+    PHP_8_3_RUN_DEPS_ALPINE=" \
+                                gnu-libiconv \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_8_2_RUN_DEPS_ALPINE=" \
-                                        gnu-libiconv \
-                                        mariadb-connector-c \
-                                   " && \
+    PHP_8_2_RUN_DEPS_ALPINE=" \
+                                gnu-libiconv \
+                                mariadb-connector-c \
+                            " && \
     \
-     export PHP_8_1_RUN_DEPS_ALPINE=" \
-                                        gnu-libiconv \
-                                        mariadb-connector-c \
-                                    " && \
+     PHP_8_1_RUN_DEPS_ALPINE=" \
+                                gnu-libiconv \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_8_0_RUN_DEPS_ALPINE=" \
-                                        gnu-libiconv \
-                                        mariadb-connector-c \
-                                   " && \
+    PHP_8_0_RUN_DEPS_ALPINE=" \
+                                gnu-libiconv \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_7_4_RUN_DEPS_ALPINE=" \
-                                        mariadb-connector-c \
-                                   " && \
+    PHP_7_4_RUN_DEPS_ALPINE=" \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_7_3_RUN_DEPS_ALPINE=" \
-                                        mariadb-connector-c \
-                                   " && \
+    PHP_7_3_RUN_DEPS_ALPINE=" \
+                                mariadb-connector-c \
+                            " && \
     \
-    export PHP_7_2_RUN_DEPS_ALPINE=" \
-                                   " && \
+    PHP_7_2_RUN_DEPS_ALPINE=" \
+                            " && \
     \
-    export PHP_7_1_RUN_DEPS_ALPINE=" \
-                                   " && \
+    PHP_7_1_RUN_DEPS_ALPINE=" \
+                            " && \
     \
-    export PHP_7_0_RUN_DEPS_ALPINE=" \
-                                   " && \
+    PHP_7_0_RUN_DEPS_ALPINE=" \
+                            " && \
     \
-    export PHP_5_6_RUN_DEPS_ALPINE=" \
-                                   " && \
+    PHP_5_6_RUN_DEPS_ALPINE=" \
+                            " && \
     \
-    export PHP_RUN_DEPS_DEBIAN=" \
-                                    ca-certificates \
-                                    git \
-                                    mariadb-client \
-                                    php-pear \
-                                    postgresql-client \
-                                " \
-    export PHP_8_5_RUN_DEPS_DEBIAN=" \
-                                   " && \
+    PHP_RUN_DEPS_DEBIAN=" \
+                            ca-certificates \
+                            git \
+                            mariadb-client \
+                            php-pear \
+                            postgresql-client \
+                        " \
+    PHP_8_5_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
-    export PHP_8_4_RUN_DEPS_DEBIAN=" \
-                                    " && \
+    PHP_8_4_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
-    export PHP_8_3_RUN_DEPS_DEBIAN=" \
-                                   " && \
+    PHP_8_3_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
-    export PHP_8_2_RUN_DEPS_DEBIAN=" \
-                                   " && \
+    PHP_8_2_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
-    export PHP_8_1_RUN_DEPS=_DEBIAN" \
-                                   " && \
+    PHP_8_1_RUN_DEPS=_DEBIAN" \
+                            " && \
     \
-    export PHP_8_0_RUN_DEPS_DEBIAN=" \
-                                   " && \
+    PHP_8_0_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
-    export PHP_7_4_RUN_DEPS_DEBIAN=" \
-                                   " && \
+    PHP_7_4_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
-    export PHP_7_3_RUN_DEPS_DEBIAN=" \
-                                   " && \
+    PHP_7_3_RUN_DEPS_DEBIAN=" \
+                            " && \
     \
     source /container/base/functions/container/build && \
     container_build_log image && \
@@ -273,6 +273,5 @@ RUN echo "" && \
     package cleanup && \
     rm -rf \
             /root/.composer
-
 
 COPY rootfs /

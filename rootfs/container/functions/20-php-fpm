@@ -268,13 +268,11 @@ phpfpm_server_configure_environment_variables() {
 }
 
 phpfpm_server_configure_logging() {
-    set -x
     mkdir -p \
                 "${php_prefix%/}"/php-fpm.d/ \
                 "${PHPFPM_LOG_ERROR_PATH}"
     touch "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}"
     chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${PHPFPM_LOG_ERROR_PATH%/}"
-    set +x
     create_logrotate phpfpm-error "${PHPFPM_LOG_ERROR_PATH%/}"/"${PHPFPM_LOG_ERROR_FILE}" phpfpm-error "${PHPFPM_USER}" "${PHPFPM_GROUP}"
 
     configure_server_logging="$(cat <<EOF
@@ -480,7 +478,6 @@ phpfpm_server_pool_environment() {
 }
 
 phpfpm_server_pool_listener() {
-set -x
     _transform_phpfpmpool_variable "${1^^}" LISTEN_TYPE _pool_listen_type
 
     case "${_pool_listen_type}" in

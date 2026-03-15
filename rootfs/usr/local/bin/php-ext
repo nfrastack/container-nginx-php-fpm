@@ -4,11 +4,12 @@
 # SPDX-License-Identifier: MIT
 
 source /container/base/functions/container/init
-
 _container_build_env_import silent $(basename $(dirname "$0"))
 _container_run_env_import silent $(basename $(dirname "$0"))
+
 php_version=$(php -v 2>/dev/null | grep "^PHP " | head -n 1 | awk '{print $2}')
 php_base=${php_version:0:3}
+
 os=$(grep -o '^ID=.*' /etc/os-release | cut -d = -f2)
 
 case "${os}" in

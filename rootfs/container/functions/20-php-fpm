@@ -73,8 +73,8 @@ EOF
         if var_true "${CONTAINER_ENABLE_MONITORING}" ; then
             local metrics_conf="${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/http/metrics.conf"
             sed -i \
-                        -e '${/^    }$/d;}' \
-                    "${metrics_conf}"
+                        -e '/^}/d;}' \
+                    dbashexit"${metrics_conf}"
 
             if [ "${_upstream,,}" != "www" ]; then
                 local _poolsuffix="_${_upstream,,}"
@@ -84,14 +84,14 @@ EOF
 
             write_file -a "${metrics_conf}":644 <<EOF
 
-        location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
-            access_log off;
-            allow 127.0.0.1;
-            deny all;
-            include ${_upstream_file};
-            fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
-            include fastcgi_params;
-        }
+    location ~ ^/(php-fpm_status|ping)${_poolsuffix} {
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+        include ${_upstream_file};
+        fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
+        include /container/data/nginx/params/fastcgi_params;
+    }
 EOF
 
             if var_true "${PHP_MODULE_ENABLE_OPCACHE}" ; then
@@ -115,17 +115,17 @@ EOF
 
                         write_file -a "${metrics_conf}":644 <<EOF
 
-        location ~ ^/${_upstream,,}/\.php(/|\$) {
-            root ${zbx_opcache_scripts%/};
-            access_log off;
-            allow 127.0.0.1;
-            deny all;
-            fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
-            fastcgi_param PATH_INFO \$fastcgi_path_info;
-            include ${_upstream_file};
-            include fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        }
+    location ~ ^/${_upstream,,}/\.php(/|\$) {
+        root ${zbx_opcache_scripts%/};
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+        fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
+        include ${_upstream_file};
+        include /container/data/nginx/params/fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+    }
 EOF
                     ;;
                 esac
@@ -133,7 +133,7 @@ EOF
                 ln -sf "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}".d/scripts/php "${zbx_opcache_scripts%/}"
             fi
 
-            echo "    }" | silent tee -a "${metrics_conf}"
+            echo "}" | write_file -a "${metrics_conf}"
         fi
 
         local _phpfpm_host

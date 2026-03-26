@@ -74,7 +74,7 @@ EOF
             local metrics_conf="${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/http/metrics.conf"
             sed -i \
                         -e '/^}/d;}' \
-                    dbashexit"${metrics_conf}"
+                    "${metrics_conf}"
 
             if [ "${_upstream,,}" != "www" ]; then
                 local _poolsuffix="_${_upstream,,}"

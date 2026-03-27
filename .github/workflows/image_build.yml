@@ -5,9 +5,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         build:
           - { php_version: "8.5", php_version_latest: "true", distro: "alpine", distro_variant: "3.23", latest: "true", distro_latest: "true", arch: "linux/amd64,linux/arm64" }
@@ -31,27 +30,15 @@ jobs:
           - core
           - faflopza
           - faflopzaze
-    env:
-       BASE_IMAGE: "ghcr.io/nfrastack/container-nginx"
-       PHP_BASE: ${{ matrix.build.php_version }}
-       DISTRO: ${{ matrix.build.distro }}
-       DISTRO_VARIANT: ${{ matrix.build.distro_variant }}
-       LATEST: ${{ matrix.build.latest || 'true' }}
-       DISTRO_LATEST: ${{ matrix.build.distro_latest || 'false' }}
-       PHP_VERSION_LATEST: ${{ matrix.build.php_version_latest || 'false' }}
-       IMAGE_VARIANT: ${{ matrix.image_variant }}
-       ARCH: ${{ matrix.build.arch || 'linux/amd64,linux/arm64' }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-      - name: Download Encrypted Files
-        uses: actions/download-artifact@v4
-        with:
-          name: encrypted-artifacts
-          path: ./
-      - name: Build Image
-        uses: nfrastack/gha/.github/actions/build_phpfpm_multi_image@main
-        with:
-          docker_username: ${{ secrets.DOCKER_USERNAME }}
-          docker_password: ${{ secrets.DOCKER_PASSWORD }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+    uses: nfrastack/gha/.github/workflows/container-build_phpfpm.yml@main
+    with:
+      base_image: "ghcr.io/nfrastack/container-nginx"
+      php_version: ${{ matrix.build.php_version }}
+      php_version_latest: ${{ matrix.build.php_version_latest }}
+      distro: ${{ matrix.build.distro }}
+      distro_variant: ${{ matrix.build.distro_variant }}
+      image_variant: ${{ matrix.image_variant }}
+      latest: ${{ matrix.build.latest || 'false' }}
+      distro_latest: ${{ matrix.build.distro_latest || 'false' }}
+      platforms: ${{ matrix.build.arch || 'linux/amd64,linux/arm64' }}
+    secrets: inherit

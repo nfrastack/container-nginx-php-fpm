@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"name": "container-nginx-php-fpm",
+			"path": "."
+		},
+		{
+			"name": "container-nginx",
+			"path": "../container-nginx"
+		},
+		{
+			"name": "container-base",
+			"path": "../container-base"
+		},
+		{
+			"name": "gha",
+			"path": "../gha"
+		}
+	],
+	"settings": {}
+}

@@ -1,4 +1,13 @@
-## 8.0.2pre 2026-02-24 <code at nfastack
+## 8.0.2 2026-03-26 <code at nfastack dot com>
+
+   ### Added
+      - Support BUILD_ENV
+
+   ### Changed
+      - Rewrite php-ext operations
+      - Repair monitoring configuration routines
+      - Support upstream base image features better
+
 
 ## 8.0.1 2026-02-24 <code at nfastack dot com>
 

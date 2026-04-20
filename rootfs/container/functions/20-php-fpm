@@ -488,7 +488,7 @@ phpfpm_server_pool_listener() {
             _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_TCP_IP_ALLOWED _pool_listen_tcp_ip_allowed
             _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_TCP_PORT _pool_listen_tcp_port
             configure_pool="$(cat <<EOF
-                                listen                          = ${_pool_listen_listen_tcp_ip}:${_pool_listen_tcp_port}
+                                listen                          = ${_pool_listen_tcp_ip}:${_pool_listen_tcp_port}
                                 listen.allowed_clients          = ${_pool_listen_tcp_ip_allowed}
 EOF
                             )"

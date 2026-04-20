@@ -1,3 +1,9 @@
+## 8.0.3 2026-04-20 <code at nfastack dot com>
+
+   ### Changed
+      - Tag to support changes in nfrastack/containre-nginx:8.0.7
+
+
 ## 8.0.2 2026-03-26 <code at nfastack dot com>
 
    ### Added

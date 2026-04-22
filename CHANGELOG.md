@@ -1,3 +1,10 @@
+## 8.0.4 2026-04-22 <code at nfastack dot com>
+
+   ### Changed
+      - Fix sisues with Zabbix monitoring (ping/php-fpm_status) URLs
+      - Rework Opcache Monitoring scripts to be dynamically created in /usr/share/zabbix/php-opcache instead of zabbix permission locked config folder
+
+
 ## 8.0.3 2026-04-20 <code at nfastack dot com>
 
    ### Changed

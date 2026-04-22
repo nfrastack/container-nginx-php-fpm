@@ -89,8 +89,9 @@ EOF
         allow 127.0.0.1;
         deny all;
         include ${_upstream_file};
-        fastcgi_param SCRIPT_FILENAME \$fastcgi_script_name;
-        include /container/data/nginx/params/fastcgi_params;
+        fastcgi_param REQUEST_METHOD \$request_method;
+        fastcgi_param SCRIPT_NAME \$uri;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$uri;
     }
 EOF
 
@@ -115,7 +116,8 @@ EOF
 
                         write_file -a "${metrics_conf}":644 <<EOF
 
-    location ~ ^/${_upstream,,}/\.php(/|\$) {
+    location ~ ^/${_upstream,,}/(.+\.php)(/.*)?\$ {
+        rewrite ^/${_upstream,,}/(.+)\$ /\$1 break;
         root ${zbx_opcache_scripts%/};
         access_log off;
         allow 127.0.0.1;
@@ -123,14 +125,18 @@ EOF
         fastcgi_split_path_info ^(.+?\.php)(/.+)\$;
         fastcgi_param PATH_INFO \$fastcgi_path_info;
         include ${_upstream_file};
-        include /container/data/nginx/params/fastcgi_params;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_param SCRIPT_NAME     \$fastcgi_script_name;
+        fastcgi_param PATH_INFO       \$fastcgi_path_info;
     }
 EOF
                     ;;
                 esac
 
-                ln -sf "${ZABBIX_CONFIG_PATH%/}"/"${ZABBIX_CONFIG_FILE%/}".d/scripts/php "${zbx_opcache_scripts%/}"
+                create_folder "${zbx_opcache_scripts%/}" "zabbix:${NGINX_GROUP}" 755
+                cp -a /container/data/php-fpm/opcache/* "${zbx_opcache_scripts%/}"
+                chown -R zabbix:${NGINX_GROUP} "${zbx_opcache_scripts%/}"
+                chmod -R 0755 "${zbx_opcache_scripts%/}"
             fi
 
             echo "}" | write_file -a "${metrics_conf}"

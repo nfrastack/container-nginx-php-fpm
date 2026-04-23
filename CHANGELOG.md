@@ -1,3 +1,9 @@
+## 8.0.5 2026-04-22 <code at nfastack dot com>
+
+   ### Changed
+      - Fix abliity to use downstream images with 8.0.4
+
+
 ## 8.0.4 2026-04-22 <code at nfastack dot com>
 
    ### Changed

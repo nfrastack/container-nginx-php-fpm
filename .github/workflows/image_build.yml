@@ -41,4 +41,5 @@ jobs:
       latest: ${{ matrix.build.latest || 'false' }}
       distro_latest: ${{ matrix.build.distro_latest || 'false' }}
       platforms: ${{ matrix.build.arch || 'linux/amd64,linux/arm64' }}
+      base_image_version: ${{ matrix.build.base_image_version || '' }}
     secrets: inherit

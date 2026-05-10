@@ -1,3 +1,9 @@
+## 8.0.6 2026-05-10 <code at nfrastack dot com>
+
+   ### Changed
+      - Add --remove destination to limit downstream image configurations destroying source of truth
+
+
 ## 8.0.5 2026-04-22 <code at nfastack dot com>
 
    ### Changed

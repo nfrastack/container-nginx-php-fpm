@@ -33,6 +33,7 @@ jobs:
     uses: nfrastack/gha/.github/workflows/container-build_phpfpm.yml@main
     with:
       base_image: "ghcr.io/nfrastack/container-nginx"
+      base_image_version: ${{ matrix.build.base_image_version || '' }}
       php_version: ${{ matrix.build.php_version }}
       php_version_latest: ${{ matrix.build.php_version_latest }}
       distro: ${{ matrix.build.distro }}
@@ -41,5 +42,4 @@ jobs:
       latest: ${{ matrix.build.latest || 'false' }}
       distro_latest: ${{ matrix.build.distro_latest || 'false' }}
       platforms: ${{ matrix.build.arch || 'linux/amd64,linux/arm64' }}
-      base_image_version: ${{ matrix.build.base_image_version || '' }}
     secrets: inherit

@@ -1,3 +1,13 @@
+## 8.1.0 2026-05-11 <code at nfrastack dot com>
+
+   ### Added
+      - Add PHPFPM_POOL_<NAME>_INCLUDES to add external include configuration
+      - Add ..._LISTEN_TYPE=both support spawning shadow pools with -tcp suffix
+
+   ### Changed
+      - Migrate to write_file for remaining tee commands
+
+
 ## 8.0.6 2026-05-10 <code at nfrastack dot com>
 
    ### Changed

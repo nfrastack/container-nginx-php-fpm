@@ -2,10 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-##TODO
-# cant use socket and ip at the same time
-# use include= variables
-
 phpfpm_bootstrap() {
     case "$(container_info distro)" in
         alpine )
@@ -48,7 +44,7 @@ phpfpm_nginx_create_location_block() {
         if [ -f "${template_src}" ]; then
             print_debug "[create_location_block/${_sitename}] Installing php location block into ${site_location}"
             mkdir -p "${site_location}"
-            cp -a --remove-destination "${template_src}" "${site_location}/php_block.conf"
+            cp -a --remove-destination "${template_src}" "${site_location}/20-php_block.conf"
         else
             print_warn "[create_location_block/${_sitename}] Template ${template_src} not found"
         fi
@@ -155,7 +151,8 @@ EOF
                 "tcp" )
                     _phpfpm_host="127.0.0.1:${_pool_listen_tcp_port}"
             ;;
-                "unix" )
+                "unix" | "both" )
+                    # phpfpm_server_pool_shadow_tcp.
                     _phpfpm_host="${_pool_listen_unix_socket}"
             ;;
             esac
@@ -182,7 +179,7 @@ EOF
             done
 
             echo "}"
-        } | silent tee "${_upstream_conf}"
+        } | write_file "${_upstream_conf}"
     fi
 }
 
@@ -235,15 +232,15 @@ phpfpm_post_init() {
 }
 
 phpfpm_server_configure() {
-    echo "include = ${php_prefix%/}/php-fpm.d/logging.conf" | silent tee "${php_prefix%/}"/php-fpm.conf
+    echo "include = ${php_prefix%/}/php-fpm.d/logging.conf" | write_file "${php_prefix%/}"/php-fpm.conf
 
     for pools_to_include in "${php_prefix%/}"/pools.d/*.conf ; do
-        echo "include = ${pools_to_include}" | silent tee -a "${php_prefix%/}"/php-fpm.conf
+        echo "include = ${pools_to_include}" | write_file -a "${php_prefix%/}"/php-fpm.conf
     done
 
     if [ -d /override/data/php-fpm/fpm/ ]; then
         for config_to_include in /override/data/php-fpm/fpm/* "${php_prefix%/}"/pools.d/*.conf ; do
-            echo "include = ${config_to_include}" | silent tee -a "${php_prefix%/}"/php-fpm.conf
+            echo "include = ${config_to_include}" | write_file -a "${php_prefix%/}"/php-fpm.conf
         done
     fi
 
@@ -269,7 +266,7 @@ phpfpm_server_configure_environment_variables() {
         local phpfpm_env_value
         phpfpm_env_var=$(echo "${phpfpm_env_pair}" | cut -d = -f1)
         phpfpm_env_value=$(echo "${phpfpm_env_pair}" | cut -d = -f2-)
-        echo "env[${phpfpm_env_var}] = ${phpfpm_env_value}" | silent tee "${php_prefix%/}"/environment/"${phpfpm_env_var}"
+        echo "env[${phpfpm_env_var}] = ${phpfpm_env_value}" | write_file "${php_prefix%/}"/environment/"${phpfpm_env_var}"
     done
 }
 
@@ -288,7 +285,7 @@ phpfpm_server_configure_logging() {
 EOF
                                )"
 
-    echo "${configure_server_logging}" | sed -e "s|^[ \t]*||" | silent tee "${php_prefix%/}"/php-fpm.d/logging.conf
+    echo "${configure_server_logging}" | sed -e "s|^[ \t]*||" | write_file "${php_prefix%/}"/php-fpm.d/logging.conf
 
     case "${PHP_BASE}" in
         "5.6" | 7[0-2] )
@@ -329,23 +326,24 @@ phpfpm_server_configure_pools() {
 
     if [ "$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*" | sed -n "s/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p" | uniq | wc -l)" -eq 1 ] ; then
         export PHPFPM_POOL_WWW_LISTEN_TYPE="${PHPFPM_POOL_DEFAULT_LISTEN_TYPE}"
-        ## TODO - need to find a way to dynamically set this in nginx /sites.enabled or other file - NGINX_SITE_... PHPFPM_POOL_NGINX_SITE?
     fi
 
     phpfpm_pool_list=$(set -o posix ; set | sort | grep "^PHPFPM_POOL_.*_LISTEN_TYPE" | sed -n 's/^PHPFPM_POOL_\([^_]*\)_.*$/\1/p' | grep -v -E '^DEFAULT$' | tr '\n' ' ')
     for phpfpm_pool in ${phpfpm_pool_list}; do
         _php_fpm_pool_vars="$(mktemp)"
-        set -o posix ; set | grep -E "^PHPFPM_POOL_${phpfpm_pool}_|^PHPFPM_POOL_DEFAULT_" | tr " " "\n" > "${_php_fpm_pool_vars}"
+        set -o posix ; set | grep -E "^PHPFPM_POOL_${phpfpm_pool}_|^PHPFPM_POOL_DEFAULT_" | tr " " "\n" | write_file "${_php_fpm_pool_vars}"
         _phpfpm_pool_prefix="${php_prefix%/}/pools.d/${phpfpm_pool,,}"
         mkdir -p "${_phpfpm_pool_prefix}"
-        echo "[${phpfpm_pool,,}]" | silent tee "${_phpfpm_pool_prefix}".conf
+        echo "[${phpfpm_pool,,}]" | write_file "${_phpfpm_pool_prefix}".conf
         call phpfpm_server_pool_listener "${phpfpm_pool}"
         call phpfpm_server_pool_log "${phpfpm_pool}"
         call phpfpm_server_pool_processmanagement "${phpfpm_pool}"
         call phpfpm_server_pool_settings "${phpfpm_pool}"
         call phpfpm_server_pool_environment "${phpfpm_pool}"
         call phpfpm_server_pool_override "${phpfpm_pool}"
+        call phpfpm_server_pool_includes "${phpfpm_pool}"
         call phpfpm_nginx_server_configure_upstream "${phpfpm_pool}"
+        call phpfpm_server_pool_shadow_tcp "${phpfpm_pool}"
         rm "${_php_fpm_pool_vars}"
     done
 }
@@ -355,12 +353,12 @@ phpfpm_server_configure_smtp() {
         case "$(container_info distro)" in
             "alpine" )
                   if var_true "${CONTAINER_ENABLE_MESSAGING}" || [ "${CONTAINER_MESSAGING_BACKEND}" = "msmtp" ] ; then
-                      echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_prefix%/}"/conf.d/99-smtp.ini
+                      echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | write_file "${php_prefix%/}"/conf.d/99-smtp.ini
                   fi
               ;;
             "debian" )
                 if var_true "${ENABLE_SMTP}" || var_true "${CONTAINER_ENABLE_MESSAGING}" ; then
-                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | silent tee "${php_root%/}"/cli/conf.d/99-smtp.ini "${php_prefix%/}"/conf.d/99-smtp.ini
+                    echo 'sendmail_path="/usr/bin/msmtp -C /etc/msmtprc -t "' | write_file "${php_root%/}"/cli/conf.d/99-smtp.ini "${php_prefix%/}"/conf.d/99-smtp.ini
                 fi
             ;;
         esac
@@ -384,10 +382,10 @@ phpfpm_server_configure_timezone() {
 
     case "$(container_info distro)" in
         "alpine" )
-            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_prefix%/}"/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" | write_file "${php_prefix%/}"/conf.d/99-timezone.ini
         ;;
         "debian" )
-            echo "date.timezone=$(cat /etc/timezone)" | silent tee "${php_root%/}"/cli/conf.d/99-timezone.ini  "${php_prefix%/}"/conf.d/99-timezone.ini
+            echo "date.timezone=$(cat /etc/timezone)" | write_file "${php_root%/}"/cli/conf.d/99-timezone.ini  "${php_prefix%/}"/conf.d/99-timezone.ini
         ;;
     esac
 }
@@ -478,7 +476,7 @@ phpfpm_server_pool_environment() {
     _transform_phpfpmpool_variable "${1^^}" ENV _pool_env
     for pool_env in $(echo "${_pool_env}" | tr "," "\n" | uniq); do
         if [ -f "${php_prefix%/}"/environment/"${pool_env}" ]; then
-            echo "include = ${php_prefix%/}/environment/${pool_env}" | silent tee -a "${_phpfpm_pool_prefix}".conf
+            echo "include = ${php_prefix%/}/environment/${pool_env}" | write_file -a "${_phpfpm_pool_prefix}".conf
         fi
     done
 }
@@ -499,7 +497,7 @@ phpfpm_server_pool_listener() {
 EOF
                             )"
         ;;
-        "unix" )
+        "unix" | "both" )
             _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_UNIX_SOCKET _pool_listen_unix_socket
             _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_UNIX_GROUP _pool_listen_unix_group
             _transform_phpfpmpool_variable "${phpfpm_pool^^}" LISTEN_UNIX_USER _pool_listen_unix_user
@@ -521,9 +519,96 @@ EOF
                             )"
         ;;
     esac
-    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-listener.conf"
-    echo "include = ${_phpfpm_pool_prefix}/${1,,}-listener.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
-set +x
+    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | write_file "${_phpfpm_pool_prefix}"/"${1,,}-listener.conf"
+    echo "include = ${_phpfpm_pool_prefix}/${1,,}-listener.conf" | write_file -a "${_phpfpm_pool_prefix}".conf
+}
+
+phpfpm_server_pool_includes() {
+    _transform_phpfpmpool_variable "${1^^}" INCLUDES _pool_includes
+    if [ -z "${_pool_includes}" ]; then
+        return
+    fi
+    local _inc
+    IFS=',' read -ra _pool_includes_arr <<< "${_pool_includes}"
+    for _inc in "${_pool_includes_arr[@]}"; do
+        _inc=$(echo "${_inc}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ -n "${_inc}" ]; then
+            print_debug "[pool_includes/${1,,}] include = ${_inc}"
+            echo "include = ${_inc}" | write_file -a "${_phpfpm_pool_prefix}".conf
+        fi
+    done
+}
+
+phpfpm_server_pool_shadow_tcp() {
+    # Create shadow pool when PHPFPM_POOL_<NAME>_LISTEN_TYPE=both
+    # Create <NAME>-tcp pool sharing all other options pm/log/env/override/inclues
+
+    _transform_phpfpmpool_variable "${1^^}" LISTEN_TYPE _pool_listen_type
+    if [ "${_pool_listen_type,,}" != "both" ]; then
+        return
+    fi
+
+    local _pool_lower="${1,,}"
+    local _primary_conf="${_phpfpm_pool_prefix}.conf"
+    local _shadow_conf="${php_prefix%/}/pools.d/${_pool_lower}-tcp.conf"
+
+    if [ ! -f "${_primary_conf}" ]; then
+        print_warn "[pool_shadow_tcp/${_pool_lower}] Primary pool .conf not found at '${_primary_conf}' - skipping shadow"
+        return
+    fi
+
+    # refuse to clobber an user created <pool>-tcp pool
+    if echo " ${phpfpm_pool_list} " | grep -qi -- " ${_pool_lower}-tcp " 2>/dev/null; then
+        print_warn "[pool_shadow_tcp/${_pool_lower}] An operator-defined '${_pool_lower}-tcp' pool exists - skipping shadow generation"
+        return
+    fi
+
+    _transform_phpfpmpool_variable "${1^^}" LISTEN_TCP_IP _shadow_tcp_ip
+    _transform_phpfpmpool_variable "${1^^}" LISTEN_TCP_PORT _shadow_tcp_port
+    _transform_phpfpmpool_variable "${1^^}" LISTEN_TCP_IP_ALLOWED _shadow_tcp_allowed
+
+    : "${_shadow_tcp_ip:=127.0.0.1}"
+    : "${_shadow_tcp_port:=9000}"
+    : "${_shadow_tcp_allowed:=127.0.0.1}"
+
+    local _shadow_pool="${_pool_lower}-tcp"
+
+    print_notice "[pool_shadow_tcp/${_pool_lower}] Spawning shadow pool '${_shadow_pool}' listening on ${_shadow_tcp_ip}:${_shadow_tcp_port}"
+
+    sed \
+        -e "s|^\[${_pool_lower}\]|[${_shadow_pool}]|" \
+        -e "\|^include[[:space:]]*=.*${_pool_lower}-listener\.conf$|d" \
+        "${_primary_conf}" > "${_shadow_conf}"
+
+    {
+        echo "listen                          = ${_shadow_tcp_ip}:${_shadow_tcp_port}"
+        echo "listen.allowed_clients          = ${_shadow_tcp_allowed}"
+    } >> "${_shadow_conf}"
+
+    local _shadow_upstream_file="${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/php-fpm/${_shadow_pool}.conf"
+    create_folder "$(dirname "${_shadow_upstream_file}")" "${NGINX_USER}:${NGINX_GROUP}" 755
+    write_file "${_shadow_upstream_file}":644 <<EOF
+fastcgi_pass            phpfpm-${_shadow_pool}-upstream;
+fastcgi_read_timeout    ${_pool_max_execution_time};
+fastcgi_send_timeout    ${_pool_max_execution_time};
+proxy_http_version      1.1;
+proxy_set_header        Connection "";
+EOF
+
+    local _shadow_upstream_conf="${NGINX_CONFIG_PATH%/}/${NGINX_CONFIG_FILE}.d/upstream/upstream-phpfpm-${_shadow_pool}.conf"
+    create_folder "$(dirname "${_shadow_upstream_conf}")" "${NGINX_USER}:${NGINX_GROUP}" 755
+    local _shadow_keepalive=""
+    if var_true "${NGINX_ENABLE_UPSTREAM_KEEPALIVE}" ; then
+        _shadow_keepalive="    keepalive ${NGINX_UPSTREAM_KEEPALIVE};"
+    fi
+    {
+        echo "upstream phpfpm-${_shadow_pool}-upstream {"
+        if [ -n "${_shadow_keepalive}" ]; then
+            echo "${_shadow_keepalive}"
+        fi
+        echo "    server ${_shadow_tcp_ip}:${_shadow_tcp_port};"
+        echo "}"
+    } | write_file "${_shadow_upstream_conf}"
 }
 
 phpfpm_server_pool_log() {
@@ -534,9 +619,9 @@ phpfpm_server_pool_log() {
         _transform_phpfpmpool_variable "${1^^}" LOG_ACCESS_FILE _pool_log_access_file
         _transform_phpfpmpool_variable "${1^^}" LOG_ACCESS_FORMAT _pool_log_access_format
 
-        mkdir -p "${_pool_log_path}"
+        create_folder "${_pool_log_path}" "${PHPFPM_USER}:${PHPFPM_GROUP}" 755
         if [ "${_pool_log_access_file}" = "default-access.log" ] ; then _pool_log_access_file="${1,,}-access.log" ; fi
-        touch "${_pool_log_path%/}"/"${_pool_log_access_file}"
+        sudo -u "${PHPFPM_USER}" touch "${_pool_log_path%/}"/"${_pool_log_access_file}"
         chown -R "${PHPFPM_USER}":"${PHPFPM_GROUP}" "${_pool_log_path%/}"
         create_logrotate phpfpm-${1,,}-access "${_pool_log_path%/}"/"${_pool_log_access_file}" phpfpm "${PHPFPM_USER}":"${PHPFPM_GROUP}"
 
@@ -551,15 +636,15 @@ phpfpm_server_pool_log() {
 EOF
                         )"
 
-        echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-log.conf"
-        echo "include = ${_phpfpm_pool_prefix}/${1,,}-log.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+        echo "${configure_pool}" | sed -e "s|^[ \t]*||" | write_file "${_phpfpm_pool_prefix}"/"${1,,}-log.conf"
+        echo "include = ${_phpfpm_pool_prefix}/${1,,}-log.conf" | write_file -a "${_phpfpm_pool_prefix}".conf
     fi
 }
 
 phpfpm_server_pool_override() {
     if [ -d /override/php-fpm/pool/"${1,,}" ]; then
-        echo "include = /override/php-fpm/pool/${1}/*.conf" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-override.conf"
-        echo "include = ${_phpfpm_pool_prefix}/${1,,}-override.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+        echo "include = /override/php-fpm/pool/${1}/*.conf" | write_file "${_phpfpm_pool_prefix}"/"${1,,}-override.conf"
+        echo "include = ${_phpfpm_pool_prefix}/${1,,}-override.conf" | write_file -a "${_phpfpm_pool_prefix}".conf
     fi
 }
 
@@ -587,8 +672,8 @@ phpfpm_server_pool_processmanagement() {
 EOF
                     )"
 
-    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-pm.conf"
-    echo "include = ${_phpfpm_pool_prefix}/${1,,}-pm.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | write_file "${_phpfpm_pool_prefix}"/"${1,,}-pm.conf"
+    echo "include = ${_phpfpm_pool_prefix}/${1,,}-pm.conf" | write_file -a "${_phpfpm_pool_prefix}".conf
 }
 
 phpfpm_server_pool_settings() {
@@ -622,8 +707,8 @@ phpfpm_server_pool_settings() {
 EOF
                     )"
 
-    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | silent tee "${_phpfpm_pool_prefix}"/"${1,,}-settings.conf"
-    echo "include = ${_phpfpm_pool_prefix}/${1,,}-settings.conf" | silent tee -a "${_phpfpm_pool_prefix}".conf
+    echo "${configure_pool}" | sed -e "s|^[ \t]*||" | write_file "${_phpfpm_pool_prefix}"/"${1,,}-settings.conf"
+    echo "include = ${_phpfpm_pool_prefix}/${1,,}-settings.conf" | write_file -a "${_phpfpm_pool_prefix}".conf
 }
 
 phpfpm_site_create_default_page() {

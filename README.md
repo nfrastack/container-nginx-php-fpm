@@ -178,42 +178,55 @@ If no pool is defined then a default `www` pool will be created with the followi
 
 Default pool settings:
 
-| Variable                                      | Description                        | Default                             |
-| --------------------------------------------- | ---------------------------------- | ----------------------------------- |
-| `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_GROUP`       | Default UNIX group for pool        | `${NGINX_GROUP}`                    |
-| `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_USER`        | Default UNIX user for pool         | `${NGINX_USER}`                     |
-| `PHPFPM_POOL_DEFAULT_USER`                    | Default pool user                  | `${NGINX_USER}`                     |
-| `PHPFPM_POOL_DEFAULT_GROUP`                   | Default pool group                 | `${NGINX_GROUP}`                    |
-| `PHPFPM_POOL_DEFAULT_CATCH_WORKERS_OUTPUT`    | Catch workers output               | `true`                              |
-| `PHPFPM_POOL_DEFAULT_ENABLE_LOG`              | Enable pool logging                | `TRUE`                              |
-| `PHPFPM_POOL_DEFAULT_PING_PATH`               | Pool ping path                     | `/ping`                             |
-| `PHPFPM_POOL_DEFAULT_DISPLAY_ERRORS`          | Display errors                     | `TRUE`                              |
-| `PHPFPM_POOL_DEFAULT_LISTEN_IP`               | Pool listen IP                     | `0.0.0.0`                           |
-| `PHPFPM_POOL_DEFAULT_LISTEN_TYPE`             | Pool listen type                   | `unix`                              |
-| `PHPFPM_POOL_DEFAULT_LISTEN_PORT`             | Pool listen port                   | `9000`                              |
-| `PHPFPM_POOL_DEFAULT_LISTEN_TCP_IP`           | Pool listen TCP IP                 | `0.0.0.0`                           |
-| `PHPFPM_POOL_DEFAULT_LISTEN_TCP_IP_ALLOWED`   | Allowed TCP IPs                    | `127.0.0.1`                         |
-| `PHPFPM_POOL_DEFAULT_LISTEN_TCP_PORT`         | Pool listen TCP port               | `9000`                              |
-| `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_SOCKET`      | Pool UNIX socket                   | `/var/lib/php-fpm/run/default.sock` |
-| `PHPFPM_POOL_DEFAULT_ENV`                     | Default pool environment variables | `PATH,TEMP,TMP,TMPDIR`              |
-| `PHPFPM_POOL_DEFAULT_LOG_ACCESS_FILE`         | Pool access log file               | `default-access.log`                |
-| `PHPFPM_POOL_DEFAULT_LOG_ACCESS_FORMAT`       | Pool access log format             | `default`                           |
-| `PHPFPM_POOL_DEFAULT_LOG_PATH`                | Pool log path                      | `/logs/php-fpm/`                    |
-| `PHPFPM_POOL_DEFAULT_MAX_CHILDREN`            | Max children                       | `75`                                |
-| `PHPFPM_POOL_DEFAULT_MAX_INPUT_NESTING_LEVEL` | Max input nesting level            | `256`                               |
-| `PHPFPM_POOL_DEFAULT_MAX_INPUT_VARS`          | Max input vars                     | `10000`                             |
-| `PHPFPM_POOL_DEFAULT_MAX_REQUESTS`            | Max requests                       | `0`                                 |
-| `PHPFPM_POOL_DEFAULT_MAX_SPARE_SERVERS`       | Max spare servers                  | `3`                                 |
-| `PHPFPM_POOL_DEFAULT_MEMORY_LIMIT`            | Pool memory limit                  | `${PHP_MEMORY_LIMIT}`               |
-| `PHPFPM_POOL_DEFAULT_MIN_SPARE_SERVERS`       | Min spare servers                  | `1`                                 |
-| `PHPFPM_POOL_DEFAULT_OUTPUT_BUFFER_SIZE`      | Output buffer size                 | `0`                                 |
-| `PHPFPM_POOL_DEFAULT_POST_MAX_SIZE`           | Pool POST max size                 | `${PHP_POST_MAX_SIZE}`              |
-| `PHPFPM_POOL_DEFAULT_PROCESS_IDLE_TIMEOUT`    | Process idle timeout               | `10s`                               |
-| `PHPFPM_POOL_DEFAULT_PROCESS_MANAGER`         | Process manager                    | `dynamic`                           |
-| `PHPFPM_POOL_DEFAULT_START_SERVERS`           | Start servers                      | `2`                                 |
-| `PHPFPM_POOL_DEFAULT_STATUS_PATH`             | Status path                        | `/php-fpm_status`                   |
-| `PHPFPM_POOL_DEFAULT_TIMEOUT`                 | Pool timeout                       | `${PHP_TIMEOUT}`                    |
-| `PHPFPM_POOL_DEFAULT_UPLOAD_MAX_SIZE`         | Pool upload max size               | `${PHP_UPLOAD_MAX_SIZE}`            |
+| Variable                                      | Description                                     | Default                             |
+| --------------------------------------------- | ----------------------------------------------- | ----------------------------------- |
+| `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_GROUP`       | Default UNIX group for pool                     | `${NGINX_GROUP}`                    |
+| `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_USER`        | Default UNIX user for pool                      | `${NGINX_USER}`                     |
+| `PHPFPM_POOL_DEFAULT_USER`                    | Default pool user                               | `${NGINX_USER}`                     |
+| `PHPFPM_POOL_DEFAULT_GROUP`                   | Default pool group                              | `${NGINX_GROUP}`                    |
+| `PHPFPM_POOL_DEFAULT_CATCH_WORKERS_OUTPUT`    | Catch workers output                            | `true`                              |
+| `PHPFPM_POOL_DEFAULT_ENABLE_LOG`              | Enable pool logging                             | `TRUE`                              |
+| `PHPFPM_POOL_DEFAULT_PING_PATH`               | Pool ping path                                  | `/ping`                             |
+| `PHPFPM_POOL_DEFAULT_DISPLAY_ERRORS`          | Display errors                                  | `TRUE`                              |
+| `PHPFPM_POOL_DEFAULT_LISTEN_IP`               | Pool listen IP                                  | `0.0.0.0`                           |
+| `PHPFPM_POOL_DEFAULT_LISTEN_TYPE`             | Pool listen type `unix` `tcp` `both` - See note | `unix`                              |
+| `PHPFPM_POOL_DEFAULT_LISTEN_PORT`             | Pool listen port                                | `9000`                              |
+| `PHPFPM_POOL_DEFAULT_LISTEN_TCP_IP`           | Pool listen TCP IP                              | `0.0.0.0`                           |
+| `PHPFPM_POOL_DEFAULT_LISTEN_TCP_IP_ALLOWED`   | Allowed TCP IPs                                 | `127.0.0.1`                         |
+| `PHPFPM_POOL_DEFAULT_LISTEN_TCP_PORT`         | Pool listen TCP port                            | `9000`                              |
+| `PHPFPM_POOL_DEFAULT_LISTEN_UNIX_SOCKET`      | Pool UNIX socket                                | `/var/lib/php-fpm/run/default.sock` |
+| `PHPFPM_POOL_DEFAULT_ENV`                     | Default pool environment variables              | `PATH,TEMP,TMP,TMPDIR`              |
+| `PHPFPM_POOL_DEFAULT_LOG_ACCESS_FILE`         | Pool access log file                            | `default-access.log`                |
+| `PHPFPM_POOL_DEFAULT_LOG_ACCESS_FORMAT`       | Pool access log format                          | `default`                           |
+| `PHPFPM_POOL_DEFAULT_LOG_PATH`                | Pool log path                                   | `/logs/php-fpm/`                    |
+| `PHPFPM_POOL_DEFAULT_MAX_CHILDREN`            | Max children                                    | `75`                                |
+| `PHPFPM_POOL_DEFAULT_MAX_INPUT_NESTING_LEVEL` | Max input nesting level                         | `256`                               |
+| `PHPFPM_POOL_DEFAULT_MAX_INPUT_VARS`          | Max input vars                                  | `10000`                             |
+| `PHPFPM_POOL_DEFAULT_MAX_REQUESTS`            | Max requests                                    | `0`                                 |
+| `PHPFPM_POOL_DEFAULT_MAX_SPARE_SERVERS`       | Max spare servers                               | `3`                                 |
+| `PHPFPM_POOL_DEFAULT_MEMORY_LIMIT`            | Pool memory limit                               | `${PHP_MEMORY_LIMIT}`               |
+| `PHPFPM_POOL_DEFAULT_MIN_SPARE_SERVERS`       | Min spare servers                               | `1`                                 |
+| `PHPFPM_POOL_DEFAULT_OUTPUT_BUFFER_SIZE`      | Output buffer size                              | `0`                                 |
+| `PHPFPM_POOL_DEFAULT_POST_MAX_SIZE`           | Pool POST max size                              | `${PHP_POST_MAX_SIZE}`              |
+| `PHPFPM_POOL_DEFAULT_PROCESS_IDLE_TIMEOUT`    | Process idle timeout                            | `10s`                               |
+| `PHPFPM_POOL_DEFAULT_PROCESS_MANAGER`         | Process manager                                 | `dynamic`                           |
+| `PHPFPM_POOL_DEFAULT_START_SERVERS`           | Start servers                                   | `2`                                 |
+| `PHPFPM_POOL_DEFAULT_STATUS_PATH`             | Status path                                     | `/php-fpm_status`                   |
+| `PHPFPM_POOL_DEFAULT_TIMEOUT`                 | Pool timeout                                    | `${PHP_TIMEOUT}`                    |
+| `PHPFPM_POOL_DEFAULT_UPLOAD_MAX_SIZE`         | Pool upload max size                            | `${PHP_UPLOAD_MAX_SIZE}`            |
+
+#### Listening on both Unix socket and TCP at once
+
+PHP-FPM does not allow multiple `listen` directives in a single pool — each pool owns exactly one endpoint. To accept FastCGI on both a Unix socket and a TCP port simultaneously, set:
+
+```yaml
+- PHPFPM_POOL_<NAME>_LISTEN_TYPE=both
+```
+
+The image then writes two pool configs:
+
+* Primary pool `[<NAME>]` — listens on the Unix socket (using `PHPFPM_POOL_<NAME>_LISTEN_UNIX_*` variables). This is the pool the image's nginx upstream is wired to.
+* Shadow pool `[<NAME>-tcp]` — listens on TCP (using `PHPFPM_POOL_<NAME>_LISTEN_TCP_*` variables). Inherits the same process-manager, log, environment, override, and includes settings as the primary.
 
 #### Logging
 
@@ -315,6 +328,27 @@ For Xdebug 3 (php >= 7.2) you should set:
 | `PHP_MODULE_XDEBUG_DISCOVER_CLIENT_HOST` | Xdebug will try to connect to the client that made the HTTP request. | `1`             |
 | `PHP_MODULE_XDEBUG_CLIENT_HOST`          | Set this to your IP Address                                          | `127.0.0.1`     |
 | `PHP_MODULE_XDEBUG_CLIENT_PORT`          | XDebug Remote Port                                                   | `9003`          |
+
+###### Including operator-supplied config files
+
+| Parameter                     | Description                                                                       | Default |
+| ----------------------------- | --------------------------------------------------------------------------------- | ------- |
+| `PHPFPM_POOL_<NAME>_INCLUDES` | Comma-separated paths appended as `include = <path>` lines to the pool's `.conf`. |         |
+
+#### Routing an nginx site to a specific PHP pool
+
+When configuring a site, the image picks which PHP pool to wire it to via this resolution chain:
+
+1. `NGINX_SITE_<SITENAME>_PHP_UPSTREAM` - per-site override (highest priority)
+2. `NGINX_PHP_UPSTREAM` - global default for all sites
+3. `www` - hardcoded fallback if neither is set
+
+The value is the pool name (e.g. `www`, `api` (or `www-tcp` to target the shadow generated by `LISTEN_TYPE=both`).
+
+| Parameter                            | Description                                                  | Default |
+| ------------------------------------ | ------------------------------------------------------------ | ------- |
+| `NGINX_SITE_<SITENAME>_PHP_UPSTREAM` | Pool name this site's nginx config should `fastcgi_pass` to. | `www`   |
+| `NGINX_PHP_UPSTREAM`                 | Default pool name used when no per-site override is set.     | `www`   |
 
 ## Users and Groups
 

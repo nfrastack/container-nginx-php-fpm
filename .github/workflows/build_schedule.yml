@@ -1,0 +1,17 @@
+name: "SCHEDULE - Automatic builds"
+on:
+  schedule:
+    - cron: 1 1 * * 6
+
+jobs:
+  prepare:
+    uses: nfrastack/gha/.github/workflows/artifacts-encrypt.yml@main
+    secrets: inherit
+  build:
+    needs: prepare
+    uses: ./.github/workflows/image-build.yml
+    secrets: inherit
+  cleanup:
+    needs: [build]
+    uses: nfrastack/gha/.github/workflows/artifacts-remove.yml@main
+    secrets: inherit

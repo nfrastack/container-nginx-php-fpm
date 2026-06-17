@@ -9,7 +9,7 @@ jobs:
     secrets: inherit
   build:
     needs: prepare
-    uses: ./.github/workflows/image-build.yml
+    uses: ./.github/workflows/image_build.yml
     secrets: inherit
   cleanup:
     needs: [build]

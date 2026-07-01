@@ -2525,7 +2525,7 @@
                         ]
                     },
                     {
-                        "uuid": "d1e7079ce01249b0ab705c3023957f21",
+                        "uuid": "d1e7079ce01249b0ab705c3.24957f21",
                         "name": "PHP OPcache: Settings - Optimization Level",
                         "type": "DEPENDENT",
                         "key": "php.opcache.settings.optimization_level",

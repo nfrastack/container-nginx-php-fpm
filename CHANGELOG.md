@@ -53,7 +53,7 @@
 ## 8.0.0 2026-02-23 <code at nfastack dot com>
 
    ### Added
-      - Supporting PHP 8.5 and Alpine 3.23
+      - Supporting PHP 8.5 and Alpine 3.24
       - Multiple Pool Support
       - Many differnet customization options
       - Dynamic configuration of PHP location block
@@ -294,25 +294,25 @@
       - Added dozens of extra modules for Alpine PHP 8.0, 8.1, 8.2 variants
 
 
-## 7.5.6 2023-03-23 <dave at tiredofit dot ca>
+## 7.5.6 2023-03.24 <dave at tiredofit dot ca>
 
    ### Changed
       - Load MSGPACK when loading Redis module
 
 
-## 7.5.5 2023-03-23 <dave at tiredofit dot ca>
+## 7.5.5 2023-03.24 <dave at tiredofit dot ca>
 
    ### Added
       - Add more OPCache options and fix broken options
 
 
-## 7.5.4 2023-03-23 <dave at tiredofit dot ca>
+## 7.5.4 2023-03.24 <dave at tiredofit dot ca>
 
    ### Added
       - Add testing repository for PHP 8.2-alpine
 
 
-## 7.5.3 2023-03-23 <dave at tiredofit dot ca>
+## 7.5.3 2023-03.24 <dave at tiredofit dot ca>
 
    ### Added
       - Introduce PHP_HIDE_X_POWERED_BY variable

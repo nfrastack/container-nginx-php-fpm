@@ -26,8 +26,6 @@ jobs:
           - { php_version: "8.2", php_version_latest: "false", distro: "debian", distro_variant: "bookworm", latest: "false", distro_latest: "false", arch: "linux/amd64,linux/arm64" }
         image_variant:
           - core
-          - faflopza
-          - faflopzaze
     uses: nfrastack/gha/.github/workflows/container-build_phpfpm.yml@main
     with:
       base_image: "ghcr.io/nfrastack/container-nginx"

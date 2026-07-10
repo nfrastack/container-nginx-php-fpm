@@ -1,3 +1,9 @@
+## 8.1.1 2026-07-10 <code at nfrastack dot com>
+
+   ### Changed
+      - Fix outputting json for monitoring #94
+
+
 ## 8.1.0 2026-05-11 <code at nfrastack dot com>
 
    ### Added

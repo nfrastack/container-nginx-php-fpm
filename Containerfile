@@ -77,26 +77,41 @@ RUN echo "" && \
                             postgresql-client \
                         " \
                         && \
+    PHP_8_5_BUILD_DEPS_ALPINE=" \
+                                gpgme-dev \
+                              " && \
     PHP_8_5_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
                                 mariadb-connector-c \
                             " && \
     \
+    PHP_8_4_BUILD_DEPS_ALPINE=" \
+                                gpgme-dev \
+                              " && \
     PHP_8_4_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
                                 mariadb-connector-c \
                             " && \
     \
+    PHP_8_3_BUILD_DEPS_ALPINE=" \
+                                gpgme-dev \
+                              " && \
     PHP_8_3_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
                                 mariadb-connector-c \
                             " && \
     \
+    PHP_8_2_BUILD_DEPS_ALPINE=" \
+                                gpgme-dev \
+                              " && \
     PHP_8_2_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
                                 mariadb-connector-c \
                             " && \
     \
+    PHP_8_1_BUILD_DEPS_ALPINE=" \
+                                gpgme-dev \
+                              " && \
      PHP_8_1_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
                                 mariadb-connector-c \
@@ -213,6 +228,11 @@ RUN echo "" && \
     if [ -f /usr/bin/phpize"${_php_version}" ] ; then ln -sf /usr/bin/phpize"${_php_version}" /usr/sbin/phpize ; fi ; \
     curl -sSLk https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
     \
+    if var_true "${build_gnupg}" ; then \
+        pecl install gnupg && \
+        echo "extension=gnupg.so" > "${_php_folder}"/conf.d/gnupg.ini ; \
+    fi ; \
+    \
     rm -rf \
             "${_php_folder}"/environment/* \
             "${_php_folder}"/php-fpm.d/* \
@@ -238,7 +258,9 @@ RUN echo "" && \
                 fi; \
             done; \
             rm -rf "${_php_folder}"/conf.d/* ; \
-            sed -i "s|;priority=00|;priority=10|g" "${_php_folder}"/conf.available/opcache.ini ; \
+            if [ -f "${_php_folder}/conf.available/opcache.ini" ]; then \
+                sed -i "s|;priority=00|;priority=10|g" "${_php_folder}"/conf.available/opcache.ini ; \
+            fi ; \
             php_env_modules_enabled="$(set -o posix; set | sort | grep "^PHP_MODULE_ENABLE_.*=" | grep -i TRUE | cut -d _ -f 4 | cut -d = -f 1 |  tr [A-Z] [a-z])" ; \
             for module in $php_env_modules_enabled ; do \
                 if [ -f "${_php_folder}"/conf.available/"${module}".ini ] ; then \

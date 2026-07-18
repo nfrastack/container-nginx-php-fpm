@@ -172,7 +172,23 @@ enable_module () {
                             esac
                             php_script_modules_enabled="${php_actual_modules_enabled} $(basename $module .ini)"
                         else
-                            echo "[php-ext] ERROR Requested enabling '$(basename $module .ini)' module however it doesn't exist!"
+                            if php -m 2>/dev/null | grep -qi "^${module}$" || \
+                               php -m 2>/dev/null | grep -qi "^zend.*${module}$"; then
+                                echo "[php-ext] WARN '${module}' module is built into PHP, creating placeholder config"
+                                case "${os}" in
+                                    "alpine" )
+                                        echo ";priority=10" > "${modules_available}/${module}.ini"
+                                        ln -sf "${modules_available}/${module}.ini" ${php_prefix}/conf.d/10-${module}.ini
+                                    ;;
+                                    "debian" )
+                                        echo ";priority=10" > "${modules_available}/${module}.ini"
+                                        silent phpenmod ${module}
+                                    ;;
+                                esac
+                                php_script_modules_enabled="${php_actual_modules_enabled} $(basename $module .ini)"
+                            else
+                                echo "[php-ext] ERROR Requested enabling '$(basename $module .ini)' module however it doesn't exist!"
+                            fi
                         fi
                     done
                 ;;

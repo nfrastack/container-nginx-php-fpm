@@ -403,6 +403,12 @@ phpfpm_server_module_apc() {
 }
 
 phpfpm_server_module_opcache() {
+    local _opcache_ext_dir
+    _opcache_ext_dir=$(php -r "echo ini_get('extension_dir');" 2>/dev/null || echo "")
+    if [ -n "${_opcache_ext_dir}" ] && [ ! -f "${_opcache_ext_dir}/opcache.so" ]; then
+        sed -i "/^zend_extension=opcache.so/d" /container/data/php-fpm/conf.available/opcache.ini
+    fi
+
     if [ "${PHP_MODULE_OPCACHE_MEM_SIZE}" = "0" ] || var_false "${PHP_MODULE_ENABLE_OPCACHE}" ; then
         sed -i \
                     -e "s|opcache.enable=1|opcache.enable=0|g" \

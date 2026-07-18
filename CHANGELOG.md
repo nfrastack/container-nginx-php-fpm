@@ -1,3 +1,10 @@
+## 8.1.2 2026-07-18 <code at nfrastack dot com>
+
+   ### Changed
+      - Rework how opcache is loaded >PHP8.5
+      - Restore building GNUPG extension >PHP8.1 alpine
+
+
 ## 8.1.1 2026-07-10 <code at nfrastack dot com>
 
    ### Changed

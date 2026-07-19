@@ -68,12 +68,11 @@ RUN echo "" && \
                                 php${PHP_BASE/./}-dev \
                                 " \
                                 && \
-    PHP_BUILD_DEPS_DEBIAN="  \
+    PHP_BUILD_DEPS_DEBIAN=" \
                           " \
                           && \
     PHP_RUN_DEPS_ALPINE="  \
                             mariadb-client \
-                            mariadb-connector-c \
                             postgresql-client \
                         " \
                         && \
@@ -82,6 +81,7 @@ RUN echo "" && \
                               " && \
     PHP_8_5_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
+                                gpgme \
                                 mariadb-connector-c \
                             " && \
     \
@@ -90,6 +90,7 @@ RUN echo "" && \
                               " && \
     PHP_8_4_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
+                                gpgme \
                                 mariadb-connector-c \
                             " && \
     \
@@ -98,6 +99,7 @@ RUN echo "" && \
                               " && \
     PHP_8_3_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
+                                gpgme \
                                 mariadb-connector-c \
                             " && \
     \
@@ -106,14 +108,16 @@ RUN echo "" && \
                               " && \
     PHP_8_2_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
+                                gpgme \
                                 mariadb-connector-c \
                             " && \
     \
     PHP_8_1_BUILD_DEPS_ALPINE=" \
                                 gpgme-dev \
                               " && \
-     PHP_8_1_RUN_DEPS_ALPINE=" \
+    PHP_8_1_RUN_DEPS_ALPINE=" \
                                 gnu-libiconv \
+                                gpgme \
                                 mariadb-connector-c \
                             " && \
     \

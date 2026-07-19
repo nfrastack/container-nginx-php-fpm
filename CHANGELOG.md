@@ -1,3 +1,9 @@
+## 8.1.3 2026-07-19 <code at nfrastack dot com>
+
+   ### Changed
+      - Add gpgme to run dependencies > PHP 8.1 Alpine
+
+
 ## 8.1.2 2026-07-18 <code at nfrastack dot com>
 
    ### Changed

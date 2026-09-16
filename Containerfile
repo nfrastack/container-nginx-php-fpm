@@ -179,7 +179,9 @@ RUN echo "" && \
     \
     source /container/base/functions/container/build && \
     container_build_log image && \
-    create_user php 9000 www-data && \
+    create_user php 9000 www-data 82 /var/cache/php-fpm && \
+    mkdir -p /var/cache/php-fpm && \
+    chown php:www-data /var/cache/php-fpm && \
     add_user_group php www-data && \
     case "$(container_info distro)" in \
         "alpine" ) \

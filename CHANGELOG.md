@@ -1,3 +1,9 @@
+## 8.1.4 2026-09-16 <code at nfrastack dot com>
+
+   ### Added
+      - Add HOME dir for php-fpm user, pass HOME value in php-fpm env
+
+
 ## 8.1.3 2026-07-19 <code at nfrastack dot com>
 
    ### Changed

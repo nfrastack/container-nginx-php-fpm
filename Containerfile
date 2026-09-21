@@ -20,7 +20,7 @@ ARG \
     PHP_BASE
 
 ENV \
-    CONTAINER_ENABLE_MESSAGING=TRUE \
+    CONTAINER_ENABLE_MESSAGING=FALSE \
     IMAGE_NAME="nfrastack/nginx-php-fpm" \
     IMAGE_REPO_URL="https://github.com/nfrastack/container-nginx-php-fpm/"
 

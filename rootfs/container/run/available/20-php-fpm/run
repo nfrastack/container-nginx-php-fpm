@@ -13,4 +13,4 @@ check_service_initialized init
 liftoff
 
 print_start "Starting php-fpm ${PHP_VERSION}"
-silent exec run_as "${PHPFPM_USER}" php-fpm -F;
+exec s6-setuidgid "${PHPFPM_USER}" env HOME="$(getent passwd "${PHPFPM_USER}" | cut -d: -f6)" php-fpm -F

@@ -1,3 +1,9 @@
+## 8.1.5 2026-09-23 <code at nfrastack dot com>
+
+   ### Changed
+      - Change faulty 8.1.4 run_as command back to long hand
+
+
 ## 8.1.4 2026-09-16 <code at nfrastack dot com>
 
    ### Added

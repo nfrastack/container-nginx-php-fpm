@@ -1,3 +1,10 @@
+## 8.2.0 2026-10-21 <code at nfrastack dot com>
+
+   ### Added
+      - Pin to nfrastack/nginx:8.2.0
+      - Updated PHP Versions to address CVE-2026-109618 / CVE-2026-109619 (8.2-8.5)
+
+
 ## 8.1.6 2026-10-20 <code at nfrastack dot com>
 
 All users should update immediately ahead of CVE-2026-10961{8,9} being released on October 21, 2026.

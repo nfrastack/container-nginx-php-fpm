@@ -1,3 +1,11 @@
+## 8.1.6 2026-10-20 <code at nfrastack dot com>
+
+All users should update immediately ahead of CVE-2026-10961{8,9} being released on October 21, 2026.
+
+   ### Added
+      - Disable Session Upload Progress - Re enable globally with PHP_SESSION_UPLOAD_PROGRESS_ENABLED=TRUE if your application needs it
+
+
 ## 8.1.5 2026-09-23 <code at nfrastack dot com>
 
    ### Changed

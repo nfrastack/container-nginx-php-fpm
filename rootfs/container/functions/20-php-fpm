@@ -257,6 +257,7 @@ phpfpm_server_configure() {
            /container/data/php-fpm/cli/php.ini
 
     call phpfpm_server_configure_smtp
+    call phpfpm_server_configure_session_upload_progress
     call phpfpm_server_configure_timezone
 }
 
@@ -347,6 +348,28 @@ phpfpm_server_configure_pools() {
         call phpfpm_server_pool_shadow_tcp "${phpfpm_pool}"
         rm "${_php_fpm_pool_vars}"
     done
+}
+
+phpfpm_server_configure_session_upload_progress() {
+    # php-up-2026 heap UAF
+    local _upload_progress_value="Off"
+    if var_true "${PHP_SESSION_UPLOAD_PROGRESS_ENABLED}" ; then
+        _upload_progress_value="On"
+    fi
+
+    sed -i \
+                -e "s#^session.upload_progress.enabled = .*#session.upload_progress.enabled = ${_upload_progress_value}#g" \
+            /container/data/php-fpm/cli/php.ini \
+            /container/data/php-fpm/fpm/php.ini
+
+    case "$(container_info distro)" in
+        "alpine" )
+            echo "session.upload_progress.enabled=${_upload_progress_value}" | write_file "${php_prefix%/}"/conf.d/99-session-upload-progress.ini
+        ;;
+        "debian" )
+            echo "session.upload_progress.enabled=${_upload_progress_value}" | write_file "${php_root%/}"/cli/conf.d/99-session-upload-progress.ini "${php_prefix%/}"/conf.d/99-session-upload-progress.ini
+        ;;
+    esac
 }
 
 phpfpm_server_configure_smtp() {
@@ -694,22 +717,30 @@ phpfpm_server_pool_settings() {
     _transform_phpfpmpool_variable "${1^^}" CATCH_WORKERS_OUTPUT _pool_catch_workers_output
     _transform_phpfpmpool_variable "${1^^}" DISPLAY_ERRORS _pool_display_errors
     _transform_phpfpmpool_variable "${1^^}" PING_PATH _pool_ping_path
+    _transform_phpfpmpool_variable "${1^^}" SESSION_UPLOAD_PROGRESS _pool_session_upload_progress
+
+    # (php-up-2026 stopgap) per pool opt in via PHPFPM_POOL_<NAME>_SESSION_UPLOAD_PROGRESS=TRUE.
+    _pool_session_upload_progress_flag="off"
+    if var_true "${_pool_session_upload_progress}" ; then
+        _pool_session_upload_progress_flag="on"
+    fi
 
     configure_pool="$(cat <<EOF
 
-                        php_admin_value[max_execution_time]         = ${_pool_max_execution_time}
-                        php_admin_value[max_input_nesting_level]    = ${_pool_max_input_nesting_level}
-                        php_admin_value[max_input_vars]             = ${_pool_max_input_vars}
-                        php_admin_value[memory_limit]               = ${_pool_memory_limit}
-                        php_admin_value[openssl.cafile]             = /etc/ssl/certs/ca-certificates.crt
-                        php_admin_value[openssl.capath]             = /etc/ssl/certs
-                        php_admin_value[output_buffering]           = ${_pool_output_buffer_size}
-                        php_admin_value[post_max_size]              = ${_pool_post_max_size}
-                        php_admin_value[upload_max_filesize]        = ${_pool_upload_max_size}
-                        php_flag[display_errors]                    = ${_pool_display_errors,,}
+                        php_admin_value[max_execution_time]             = ${_pool_max_execution_time}
+                        php_admin_value[max_input_nesting_level]        = ${_pool_max_input_nesting_level}
+                        php_admin_value[max_input_vars]                 = ${_pool_max_input_vars}
+                        php_admin_value[memory_limit]                   = ${_pool_memory_limit}
+                        php_admin_value[openssl.cafile]                 = /etc/ssl/certs/ca-certificates.crt
+                        php_admin_value[openssl.capath]                 = /etc/ssl/certs
+                        php_admin_value[output_buffering]               = ${_pool_output_buffer_size}
+                        php_admin_value[post_max_size]                  = ${_pool_post_max_size}
+                        php_admin_value[upload_max_filesize]            = ${_pool_upload_max_size}
+                        php_admin_flag[session.upload_progress.enabled] = ${_pool_session_upload_progress_flag}
+                        php_flag[display_errors]                        = ${_pool_display_errors,,}
 
-                        catch_workers_output                        = ${_pool_catch_workers_output,,}
-                        ping.path                                   = ${_pool_ping_path}
+                        catch_workers_output                            = ${_pool_catch_workers_output,,}
+                        ping.path                                       = ${_pool_ping_path}
 
 EOF
                     )"

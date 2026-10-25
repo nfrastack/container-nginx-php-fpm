@@ -1,3 +1,9 @@
+## 8.2.1 2026-10-25 <code at nfrastack dot com>
+
+   ### Added
+      - Pin to nfrastack/nginx:8.2.1
+
+
 ## 8.2.0 2026-10-21 <code at nfrastack dot com>
 
    ### Added
